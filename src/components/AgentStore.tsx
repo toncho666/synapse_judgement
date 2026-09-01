@@ -85,6 +85,15 @@ export default function AgentStore({ selected, onToggle }: Props) {
                 <h3 className="mt-5 text-[21px] font-extrabold tracking-tight">{a.name}</h3>
                 <p className="mt-2 min-h-[66px] text-[14.5px] leading-relaxed text-sub">{a.desc}</p>
 
+                <a
+                  href={`#/agent/${a.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-bold text-accent transition-colors duration-300 hover:text-violet"
+                >
+                  Profile & sample report
+                  <Icon name="arrowUpRight" size={13} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </a>
+
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {a.tags.map((t) => (
                     <span key={t} className="rounded-full border border-line bg-white px-2.5 py-1 font-mono text-[11px] font-medium text-faint">
