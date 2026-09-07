@@ -10,10 +10,14 @@ import Transparency from "./components/Transparency";
 import Faq from "./components/Faq";
 import Footer from "./components/Footer";
 import AgentPage from "./components/AgentPage";
+import AuthPage from "./components/AuthPage";
+import Dashboard from "./components/Dashboard";
+import Leaderboard from "./components/Leaderboard";
 import Reveal from "./components/Reveal";
 import Icon from "./components/Icon";
 import { useHashRoute } from "./lib/router";
 import { useReducedMotion } from "./lib/hooks";
+import { getUser, type User } from "./lib/auth";
 import {
   AGENTS, JUDGE_PRICE, runAnalysis,
   type AgentId, type SessionResult,
@@ -22,7 +26,12 @@ import {
 export default function App() {
   const reduced = useReducedMotion();
   const { route, nav } = useHashRoute();
-  const routeKey = route.name === "agent" ? `agent-${route.id}` : "home";
+  const routeKey = 
+    route.name === "agent" ? `agent-${route.id}` :
+    route.name === "auth" ? "auth" :
+    route.name === "dashboard" ? "dashboard" :
+    route.name === "leaderboard" ? "leaderboard" :
+    "home";
 
   const [ticker, setTicker] = useState("");
   const [portfolio, setPortfolio] = useState("");
@@ -34,9 +43,15 @@ export default function App() {
   const [orderCost, setOrderCost] = useState(0);
   const [orderJudge, setOrderJudge] = useState(0);
   const [errorNonce, setErrorNonce] = useState(0);
+  const [user, setUser] = useState<User | null>(null);
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  // Check for logged-in user on mount
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
 
   /* ---------- routing: scroll management ---------- */
   const routeRef = useRef(route);
@@ -162,6 +177,18 @@ export default function App() {
 
   const totalCost = useMemo(() => orderCost + orderJudge, [orderCost, orderJudge]);
 
+  // Handle auth success
+  const handleAuthSuccess = useCallback(() => {
+    setUser(getUser());
+    nav({ name: "dashboard" });
+  }, [nav]);
+
+  // Handle logout
+  const handleLogout = useCallback(() => {
+    setUser(null);
+    nav({ name: "home" });
+  }, [nav]);
+
   return (
     <div className="relative min-h-screen overflow-x-clip bg-white text-ink">
       {/* ambient background */}
@@ -171,91 +198,106 @@ export default function App() {
         <div className="absolute bottom-[-18%] right-[8%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(0,199,190,0.07),transparent_65%)]" />
       </div>
 
-      <Nav />
-
-      {route.name === "agent" ? (
-        <main className="relative z-10">
-          <AgentPage
-            agent={AGENTS.find((a) => a.id === route.id)!}
-            selected={selected}
-            onToggle={toggleAgent}
-            goHome={goHome}
-          />
-        </main>
+      {/* Auth page */}
+      {route.name === "auth" ? (
+        <AuthPage onSuccess={handleAuthSuccess} onBack={goHome} />
+      ) : route.name === "dashboard" ? (
+        user ? (
+          <Dashboard onLogout={handleLogout} onHome={goHome} />
+        ) : (
+          <AuthPage onSuccess={handleAuthSuccess} onBack={goHome} />
+        )
+      ) : route.name === "leaderboard" ? (
+        <Leaderboard onBack={goHome} onAuth={() => nav({ name: "auth" })} />
       ) : (
-        <main className="relative z-10">
-          <Hero />
+        <>
+          <Nav user={user} onDashboard={() => nav({ name: "dashboard" })} onAuth={() => nav({ name: "auth" })} />
 
-          <div className="relative">
-            <RequestSection
-              ticker={ticker}
-              onTicker={setTicker}
-              portfolio={portfolio}
-              onPortfolio={setPortfolio}
-              selectedCount={selected.length}
-              total={total}
-              judgeFree={judgeFree}
-            />
-            {errorNonce > 0 && (
-              <div key={errorNonce} className="anim-shake absolute inset-x-5 bottom-8 z-20 mx-auto max-w-xl md:inset-x-8">
-                <p className="flex items-center gap-2.5 rounded-full border border-flame/30 bg-[#fff1f0] px-5 py-3 text-[13.5px] font-semibold text-[#b3271e] shadow-soft">
-                  <Icon name="bolt" size={16} />
-                  Enter a ticker — for example, AAPL or NVDA.
-                </p>
+          {route.name === "agent" ? (
+            <main className="relative z-10">
+              <AgentPage
+                agent={AGENTS.find((a) => a.id === route.id)!}
+                selected={selected}
+                onToggle={toggleAgent}
+                goHome={goHome}
+              />
+            </main>
+          ) : (
+            <main className="relative z-10">
+              <Hero />
+
+              <div className="relative">
+                <RequestSection
+                  ticker={ticker}
+                  onTicker={setTicker}
+                  portfolio={portfolio}
+                  onPortfolio={setPortfolio}
+                  selectedCount={selected.length}
+                  total={total}
+                  judgeFree={judgeFree}
+                />
+                {errorNonce > 0 && (
+                  <div key={errorNonce} className="anim-shake absolute inset-x-5 bottom-8 z-20 mx-auto max-w-xl md:inset-x-8">
+                    <p className="flex items-center gap-2.5 rounded-full border border-flame/30 bg-[#fff1f0] px-5 py-3 text-[13.5px] font-semibold text-[#b3271e] shadow-soft">
+                      <Icon name="bolt" size={16} />
+                      Enter a ticker — for example, AAPL or NVDA.
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <AgentStore selected={selected} onToggle={toggleAgent} />
-          <Pipeline />
-          <ResultsDashboard
+              <AgentStore selected={selected} onToggle={toggleAgent} />
+              <Pipeline />
+              <ResultsDashboard
+                stage={stage}
+                result={result}
+                totalCost={totalCost}
+                processed={processed}
+                onRevealVerdict={revealVerdict}
+                onNewSession={newSession}
+              />
+              <Transparency />
+              <Faq />
+
+              {/* final CTA */}
+              <section className="mx-auto max-w-6xl px-5 pb-28 md:px-8">
+                <Reveal>
+                  <div className="relative overflow-hidden rounded-[32px] bg-ink px-8 py-16 text-center text-white md:py-20">
+                    <div className="pointer-events-none absolute -left-20 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(0,122,255,0.4),transparent_70%)]" />
+                    <div className="pointer-events-none absolute -bottom-28 -right-16 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(88,86,214,0.45),transparent_70%)]" />
+                    <h2 className="relative text-3xl font-extrabold tracking-tight md:text-5xl">
+                      The court is in session.
+                    </h2>
+                    <p className="relative mx-auto mt-4 max-w-xl text-[16px] leading-relaxed text-white/60">
+                      Five analysts. One verdict. Pick your team — and see what the Judge decides about{" "}
+                      {validTicker ? ticker : "your ticker"}.
+                    </p>
+                    <a
+                      href="#agents"
+                      className="relative mt-9 inline-flex items-center gap-2.5 rounded-full bg-white px-9 py-4 text-[15px] font-extrabold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(255,255,255,0.25)]"
+                    >
+                      Build your team
+                      <Icon name="arrowDown" size={17} />
+                    </a>
+                  </div>
+                </Reveal>
+              </section>
+            </main>
+          )}
+
+          <Footer />
+
+          <StickyBar
+            selected={selected}
+            total={total}
+            judgeFree={judgeFree}
             stage={stage}
-            result={result}
-            totalCost={totalCost}
             processed={processed}
-            onRevealVerdict={revealVerdict}
+            onRun={launch}
             onNewSession={newSession}
           />
-          <Transparency />
-          <Faq />
-
-          {/* final CTA */}
-          <section className="mx-auto max-w-6xl px-5 pb-28 md:px-8">
-            <Reveal>
-              <div className="relative overflow-hidden rounded-[32px] bg-ink px-8 py-16 text-center text-white md:py-20">
-                <div className="pointer-events-none absolute -left-20 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(0,122,255,0.4),transparent_70%)]" />
-                <div className="pointer-events-none absolute -bottom-28 -right-16 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(88,86,214,0.45),transparent_70%)]" />
-                <h2 className="relative text-3xl font-extrabold tracking-tight md:text-5xl">
-                  The court is in session.
-                </h2>
-                <p className="relative mx-auto mt-4 max-w-xl text-[16px] leading-relaxed text-white/60">
-                  Five analysts. One verdict. Pick your team — and see what the Judge decides about{" "}
-                  {validTicker ? ticker : "your ticker"}.
-                </p>
-                <a
-                  href="#agents"
-                  className="relative mt-9 inline-flex items-center gap-2.5 rounded-full bg-white px-9 py-4 text-[15px] font-extrabold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(255,255,255,0.25)]"
-                >
-                  Build your team
-                  <Icon name="arrowDown" size={17} />
-                </a>
-              </div>
-            </Reveal>
-          </section>
-        </main>
+        </>
       )}
-
-      <Footer />
-
-      <StickyBar
-        selected={selected}
-        total={total}
-        judgeFree={judgeFree}
-        stage={stage}
-        processed={processed}
-        onRun={launch}
-        onNewSession={newSession}
-      />
 
       <div className="grain" aria-hidden="true" />
     </div>
