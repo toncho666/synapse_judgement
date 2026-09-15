@@ -72,8 +72,8 @@ export const AGENTS: AgentDef[] = [
 export interface AgentVerdict {
   agentId: AgentId;
   signal: Signal;
-  score: number; // -1..1
-  confidence: number; // 0..100
+  score: number;
+  confidence: number;
   lines: string[];
   metrics: { label: string; value: string }[];
 }
@@ -84,7 +84,7 @@ export interface SessionResult {
   basePrice: number;
   target: number;
   agents: AgentVerdict[];
-  composite: number; // -1..1
+  composite: number;
   verdict: VerdictKind;
   verdictWord: string;
   verdictConfidence: number;
@@ -92,7 +92,6 @@ export interface SessionResult {
   rationale: string[];
 }
 
-/* ---------- seeded rng ---------- */
 function xmur3(str: string) {
   let h = 1779033703 ^ str.length;
   for (let i = 0; i < str.length; i++) {
@@ -105,6 +104,7 @@ function xmur3(str: string) {
     return (h ^= h >>> 16) >>> 0;
   };
 }
+
 function mulberry32(a: number) {
   return () => {
     a |= 0;
@@ -114,6 +114,7 @@ function mulberry32(a: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const fmt1 = (v: number) => v.toFixed(1);
 const fmt2 = (v: number) => v.toFixed(2);
@@ -126,45 +127,36 @@ export function plural(n: number, one: string, many: string) {
   return n === 1 ? one : many;
 }
 
-/* ---------- line pools ---------- */
 function techLines(s: number, r: () => number, lvl: number) {
   const bull = [
     `Price reclaimed the 200-day moving average — volume confirms the move.`,
     `RSI ${58 + Math.round(r() * 9)}, not overbought: the trend still has fuel.`,
     `Liquidity swept at ${fmt2(lvl * 0.94)} — the technical path to ${fmt2(lvl * 1.08)} is open.`,
-    `Bullish daily structure: higher highs and a rising OBV.`,
   ];
   const bear = [
     `Broke and held below ${fmt2(lvl * 0.97)}: sellers control the volume.`,
     `RSI ${29 + Math.round(r() * 9)}, structure is down — bounces look corrective.`,
     `A pool of stop liquidity sits under the market: cascade risk remains.`,
-    `The daily death cross confirms the pressure.`,
   ];
   const flat = [
-    `Range-bound between ${fmt2(lvl * 0.96)} and ${fmt2(lvl * 1.04)}: volume is compressing, the market waits for a trigger.`,
+    `Range-bound between ${fmt2(lvl * 0.96)} and ${fmt2(lvl * 1.04)}: volume is compressing.`,
     `Neutral structure — no trend, no meaningful divergence.`,
-    `Volatility sits in the lowest decile of the year: a coiled spring before an impulse.`,
   ];
   return s > 0.18 ? bull : s < -0.18 ? bear : flat;
 }
 
 function fundLines(s: number, r: () => number) {
   const bull = [
-    `FCF margin ${fmt1(14 + r() * 12)}% — the business throws off cash with room to spare.`,
+    `FCF margin expanded to ${fmt1(14 + r() * 12)}% — the business converts growth into cash.`,
     `Forward P/E ${fmt1(14 + r() * 10)} — below the five-year median: growth isn't priced in.`,
-    `Net Debt / EBITDA ${fmt1(0.4 + r() * 1.1)} — the balance sheet survives any rate path.`,
-    `Buybacks at ${fmt1(2 + r() * 3)}% of market cap a year support EPS.`,
   ];
   const bear = [
     `Margins have compressed for three straight quarters: operating leverage works in reverse.`,
     `Forward P/E ${fmt1(28 + r() * 14)} — the top decile of its historical range.`,
-    `Debt is growing faster than EBITDA: refinancing will be more expensive.`,
-    `FCF is under capex pressure — payback is questionable.`,
   ];
   const flat = [
     `Valuation near the historical median: no discount, no premium.`,
     `Margins stable, growth moderate — fundamentals without surprises.`,
-    `The balance sheet is steady: no catalysts for a re-rating in sight.`,
   ];
   return s > 0.18 ? bull : s < -0.18 ? bear : flat;
 }
@@ -173,18 +165,11 @@ function portLines(s: number, r: () => number, hasPortfolio: boolean) {
   const share = fmt1(3 + r() * 9);
   const corr = fmt2(0.3 + r() * 0.55);
   const bull = [
-    hasPortfolio
-      ? `A ${share}% position stays inside the risk budget and creates no tilt.`
-      : `A position of this size creates no tilt in a balanced portfolio.`,
+    hasPortfolio ? `A ${share}% position stays inside the risk budget.` : `A position of this size creates no tilt in a balanced portfolio.`,
     `Correlation with the portfolio core is ${corr} — diversification holds.`,
-    `Contribution to portfolio volatility is moderate: ${fmt1(4 + r() * 6)}% at target weight.`,
-    `Paired with current holdings, it adds negative beta to drawdown scenarios.`,
   ];
   const bear = [
     `Correlation of ${corr} with an already crowded segment — concentration rises.`,
-    hasPortfolio
-      ? `Above a ${share}% weight the portfolio breaches its growth-factor limit.`
-      : `The position deepens the portfolio's tilt toward growth and tech.`,
     `Stress test: in a −20% market, the position adds ${fmt1(3 + r() * 4)} pp of drawdown.`,
   ];
   const flat = [
@@ -198,13 +183,10 @@ function newsLines(s: number, r: () => number) {
   const bull = [
     `Sentiment ${Math.round(62 + r() * 20)}% positive over 72 hours — no negative spikes.`,
     `${2 + Math.round(r() * 9)}K mentions a day: interest is rising without hysteria.`,
-    `Major outlets shifted from neutral to a positive tone after the latest data.`,
-    `No insider sales on record — the backdrop is clean.`,
   ];
   const bear = [
     `A regulatory headline drove ${Math.round(40 + r() * 25)}% negativity across the feed in 48 hours.`,
     `A negative wave on social: ${Math.round(15 + r() * 30)}K mentions with falling sentiment.`,
-    `A media investigation is gaining reach — more headlines are likely.`,
   ];
   const flat = [
     `The information backdrop is quiet: no material headlines in 72 hours.`,
@@ -217,13 +199,10 @@ function earnLines(s: number, r: () => number) {
   const bull = [
     `Management flagged a record backlog three times — confidence above the norm.`,
     `Guidance raised ${fmt1(2 + r() * 5)}% above consensus: a rare tell.`,
-    `CFO tone firmer than last quarter: evasive phrasing down ${Math.round(20 + r() * 25)}%.`,
-    `The margin question got a concrete number — unusual transparency.`,
   ];
   const bear = [
-    `The word “uncertainty” appeared ${6 + Math.round(r() * 9)} times — twice the usual rate.`,
+    `The word "uncertainty" appeared ${6 + Math.round(r() * 9)} times — twice the usual rate.`,
     `Guidance ${fmt1(1.5 + r() * 4)}% below consensus — management is baking in caution.`,
-    `The CEO dodged the margin question — a pattern that preceded past downgrades.`,
   ];
   const flat = [
     `An uneventful call: guidance confirmed, rhetoric neutral.`,
@@ -232,7 +211,6 @@ function earnLines(s: number, r: () => number) {
   return s > 0.18 ? bull : s < -0.18 ? bear : flat;
 }
 
-/* ---------- metrics ---------- */
 function agentMetrics(id: AgentId, s: number, r: () => number, hasPortfolio: boolean) {
   const sign = s > 0 ? "+" : "";
   switch (id) {
@@ -269,7 +247,6 @@ function agentMetrics(id: AgentId, s: number, r: () => number, hasPortfolio: boo
   }
 }
 
-/* ---------- main ---------- */
 export function runAnalysis(
   tickerRaw: string,
   agentIds: AgentId[],
@@ -281,9 +258,7 @@ export function runAnalysis(
   const basePrice = 18 + r() * 860;
   const base = (r() - 0.5) * 1.15;
 
-  const bias: Record<AgentId, number> = {
-    tech: 0.08, fund: 0.05, port: -0.03, news: 0.1, earn: -0.05,
-  };
+  const bias: Record<AgentId, number> = { tech: 0.08, fund: 0.05, port: -0.03, news: 0.1, earn: -0.05 };
 
   const agents: AgentVerdict[] = agentIds.map((id) => {
     const score = clamp(base + bias[id] + (r() - 0.5) * 0.95, -1, 1);
@@ -323,22 +298,10 @@ export function runAnalysis(
   const defOf = (id: AgentId) => AGENTS.find((a) => a.id === id)!;
 
   const rationale: string[] = [];
-  rationale.push(
-    `${agree} of ${agents.length} ${plural(agents.length, "agent", "agents")} on the same side — consensus weight ${Math.round(
-      (agree / Math.max(1, agents.length)) * 100,
-    )}%.`,
-  );
+  rationale.push(`${agree} of ${agents.length} ${plural(agents.length, "agent", "agents")} on the same side — consensus weight ${Math.round((agree / Math.max(1, agents.length)) * 100)}%.`);
   if (strongest) {
     const dir = strongest.score > 0 ? "bullish" : strongest.score < 0 ? "bearish" : "neutral";
-    rationale.push(
-      `The strongest ${dir} argument comes from ${defOf(strongest.agentId).short} (confidence ${strongest.confidence}%).`,
-    );
-  }
-  const dissenter = agents.find((a) => (composite >= 0 ? a.signal === "bear" : composite > 0 ? false : a.signal === "bull"));
-  if (dissenter) {
-    rationale.push(
-      `The lone dissent comes from ${defOf(dissenter.agentId).short}, counted at a ${dissenter.confidence}% weight.`,
-    );
+    rationale.push(`The strongest ${dir} argument comes from ${defOf(strongest.agentId).short} (confidence ${strongest.confidence}%).`);
   }
   rationale.push(
     composite >= 0.28

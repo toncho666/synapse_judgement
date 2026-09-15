@@ -1,5 +1,6 @@
 import Icon from "./Icon";
 import { useScrolled } from "../lib/hooks";
+import type { User } from "../lib/auth";
 
 const LINKS = [
   { href: "#agents", label: "Agents" },
@@ -8,7 +9,13 @@ const LINKS = [
   { href: "#pricing", label: "Pricing" },
 ];
 
-export default function Nav() {
+interface Props {
+  user: User | null;
+  onDashboard: () => void;
+  onAuth: () => void;
+}
+
+export default function Nav({ user, onDashboard, onAuth }: Props) {
   const scrolled = useScrolled(24);
   return (
     <header
@@ -43,19 +50,46 @@ export default function Nav() {
               <span className="absolute -bottom-1 left-0 h-[2px] w-0 rounded-full bg-gradient-to-r from-accent to-violet transition-all duration-300 group-hover:w-full" />
             </a>
           ))}
+          <a
+            href="#/leaderboard"
+            className="group relative text-[14px] font-semibold text-sub transition-colors duration-300 hover:text-ink"
+          >
+            Leaderboard
+            <span className="absolute -bottom-1 left-0 h-[2px] w-0 rounded-full bg-gradient-to-r from-accent to-violet transition-all duration-300 group-hover:w-full" />
+          </a>
         </nav>
 
         <div className="flex items-center gap-3">
-          <span className="hidden rounded-full border border-line bg-card px-3 py-1.5 font-mono text-[11px] font-semibold text-sub lg:block">
-            v2.4
-          </span>
-          <a
-            href="#agents"
-            className="group inline-flex items-center gap-2 rounded-full border-[1.5px] border-ink px-5 py-2.5 text-[14px] font-bold text-ink transition-all duration-300 hover:border-transparent hover:bg-gradient-to-r hover:from-accent hover:to-violet hover:text-white"
-          >
-            <Icon name="judge" size={16} />
-            The court is in session
-          </a>
+          {user ? (
+            <>
+              <div className="hidden items-center gap-2 rounded-full bg-card px-4 py-2 font-mono text-[12px] font-bold text-ink md:flex">
+                <Icon name="spark" size={14} className="text-amber" />
+                {user.credits} credits
+              </div>
+              <button
+                onClick={onDashboard}
+                className="flex items-center gap-2.5 rounded-full border border-line px-4 py-2 transition-all duration-300 hover:border-accent"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-accent to-violet text-[14px]">
+                  {user.avatar}
+                </span>
+                <span className="hidden text-[13px] font-bold text-ink md:inline">{user.name.split(' ')[0]}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="hidden rounded-full border border-line bg-card px-3 py-1.5 font-mono text-[11px] font-semibold text-sub lg:block">
+                v2.4
+              </span>
+              <button
+                onClick={onAuth}
+                className="group inline-flex items-center gap-2 rounded-full border-[1.5px] border-ink px-5 py-2.5 text-[14px] font-bold text-ink transition-all duration-300 hover:border-transparent hover:bg-gradient-to-r hover:from-accent hover:to-violet hover:text-white"
+              >
+                <Icon name="judge" size={16} />
+                Sign in
+              </button>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -39,10 +39,7 @@ export function useCountUp(end: number, active: boolean, duration = 1300) {
   const reduced = useReducedMotion();
   useEffect(() => {
     if (!active) return;
-    if (reduced) {
-      setVal(end);
-      return;
-    }
+    if (reduced) { setVal(end); return; }
     let raf = 0;
     const t0 = performance.now();
     const tick = (t: number) => {
