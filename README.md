@@ -1,199 +1,285 @@
-# Synapse Judgement - AI Investment Council Platform
+# 🎯 Synapse Judgement - Полный стек
 
-A full-featured AI-powered investment analysis platform with 5 specialized agents and a Judge that synthesizes their verdicts.
+AI-платформа инвестиционного анализа с 5 агентами и Судьёй.
 
-## 🎯 Features
+## 📦 Что включено
 
-### Core Platform
-- **5 AI Agents**: Technical, Fundamental, Portfolio, News, and Earning Calls analysts
-- **The Judge**: Synthesizes agent verdicts into a final decision (BUY/HOLD/SELL)
-- **Real-time Analysis**: See agent processing with animated progress indicators
-- **Detailed Reports**: Each agent provides confidence scores and key metrics
-- **Transparent Pricing**: Pay only for the agents you use ($4-8 per analysis)
+### ✅ Frontend (React + TypeScript + Tailwind)
+- Лендинг с hero-секцией
+- Магазин агентов с iOS-тумблерами
+- Детальные страницы каждого агента
+- Дашборд результатов с визуализацией
+- Авторизация и личный кабинет
+- Лидерборд
+- Реферальная программа
+- Система достижений
 
-### User System
-- **Authentication**: Sign up/login with email and password
-- **Dashboard**: View analysis history, statistics, and achievements
-- **Credits System**: 50 free credits on signup, earn more through referrals
-- **Subscription Tiers**: Free, Pro ($29/mo), and Enterprise ($99/mo) plans
-- **Achievement System**: Unlock badges for milestones and activity
+### ✅ Backend (Node.js + Express + TypeScript)
+- REST API со всеми эндпоинтами
+- JWT аутентификация
+- PostgreSQL + Prisma ORM
+- Валидация данных (Zod)
+- Логирование (Winston)
+- Обработка ошибок
 
-### Growth Features
-- **Leaderboard**: Public ranking of top analysts by accuracy
-- **Referral Program**: Earn 25 credits for each friend who joins
-- **Live Verdicts Feed**: See recent analyses from the community
-- **Social Proof**: Display accuracy scores and session counts
+## 🚀 Быстрый старт
 
-## 🚀 Getting Started
+### Требования
+- Node.js 18+
+- PostgreSQL 14+
+- npm
 
-### Demo Access
-1. Visit the site
-2. Click "Sign in" in the navigation
-3. Use demo credentials (pre-filled): `demo@synapse.ai` / `demo123`
-4. Explore the dashboard with sample data
+### Автоматическая установка
 
-### New User Flow
-1. Sign up to get 50 free credits
-2. Select agents for your analysis (minimum 1)
-3. Enter a ticker symbol (e.g., AAPL, TSLA, NVDA)
-4. Click "Run Analysis" to see results
-5. View detailed breakdown from each agent
-6. Get the Judge's final verdict
+```bash
+# Сделать скрипт исполняемым
+chmod +x quick-start.sh
 
-## 📊 Analysis Process
-
-### Agent Selection
-- **Technical** ($5): Chart patterns, indicators, price action
-- **Fundamental** ($7): Financial metrics, valuation, growth
-- **Portfolio** ($6): Risk assessment, correlation, position sizing
-- **News** ($4): Sentiment analysis, recent developments
-- **Earning Calls** ($8): Management tone, guidance, Q&A insights
-
-### The Judge
-- Automatically activated when 2+ agents are selected
-- Weighs agent opinions by confidence scores
-- Provides final verdict with reasoning
-- Free with 2+ agents, $15 for single-agent analysis
-
-## 🏆 Gamification
-
-### Achievements
-- **First Verdict**: Complete your first analysis
-- **Power User**: Run 50+ analyses
-- **Diversified**: Use all 5 agents
-- **Streak Master**: Maintain daily analysis streak
-- **Community Leader**: Refer 10+ friends
-
-### Leaderboard
-- Ranked by accuracy score
-- Shows session count and current streak
-- Public profiles with anonymized names
-- Updated hourly
-
-## 💎 Subscription Plans
-
-### Free ($0)
-- 50 credits on signup
-- Access to all 5 agents
-- Basic verdict reports
-- Community support
-
-### Pro ($29/month)
-- 500 credits/month
-- Priority processing
-- Detailed reasoning
-- Email support
-- API access
-
-### Enterprise ($99/month)
-- 2000 credits/month
-- Custom agents
-- White-label reports
-- Dedicated support
-- SLA guarantee
-- Team seats
-
-## 🎨 Design Philosophy
-
-### Apple-Inspired UI
-- Clean, minimalist design
-- Smooth animations and transitions
-- Gradient accents (blue to purple)
-- Generous whitespace
-- Card-based layouts with soft shadows
-
-### User Experience
-- Instant price updates when toggling agents
-- Progressive disclosure of information
-- Clear visual hierarchy
-- Responsive design for all devices
-- Accessibility-focused
-
-## 🛠️ Technical Stack
-
-- **Frontend**: React 18 + TypeScript
-- **Styling**: Tailwind CSS 4
-- **Build Tool**: Vite
-- **Routing**: Custom hash-based router
-- **State Management**: React hooks + localStorage
-- **Animations**: CSS animations + Framer Motion patterns
-
-## 📁 Project Structure
-
-```
-src/
-├── components/
-│   ├── AgentPage.tsx       # Individual agent detail pages
-│   ├── AgentStore.tsx      # Agent selection interface
-│   ├── AuthPage.tsx        # Login/signup forms
-│   ├── Dashboard.tsx       # User dashboard
-│   ├── Faq.tsx            # FAQ section
-│   ├── Footer.tsx         # Site footer
-│   ├── Hero.tsx           # Landing page hero
-│   ├── Icon.tsx           # SVG icon components
-│   ├── Leaderboard.tsx    # Public leaderboard
-│   ├── Nav.tsx            # Navigation header
-│   ├── Pipeline.tsx       # How it works section
-│   ├── RequestSection.tsx # Analysis request form
-│   ├── ResultsDashboard.tsx # Analysis results display
-│   ├── Reveal.tsx         # Scroll animation wrapper
-│   ├── StickyBar.tsx      # Floating action bar
-│   ├── Transparency.tsx   # Pricing transparency
-│   └── viz.tsx            # Data visualization components
-├── data/
-│   └── agentMock.ts       # Mock data for agent pages
-├── lib/
-│   ├── auth.ts            # Authentication system
-│   ├── engine.ts          # Analysis engine
-│   ├── hooks.ts           # Custom React hooks
-│   └── router.ts          # Hash-based routing
-└── App.tsx                # Main application component
+# Запустить установку и запуск
+./quick-start.sh
 ```
 
-## 🔐 Authentication
+### Ручная установка
 
-The platform uses localStorage for demo purposes:
-- User data stored in `synapse_user`
-- Session history in `synapse_sessions`
-- Referrals tracked in `synapse_referrals`
+**1. Backend:**
+```bash
+cd backend
+npm install
+npm run db:generate
+npm run db:push
+npm run db:seed
+npm run dev
+```
 
-**Note**: This is a demo implementation. For production, integrate with a proper authentication service (Auth0, Firebase Auth, etc.).
+**2. Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## 📈 Analytics & Metrics
+## 📍 URLs
 
-The dashboard tracks:
-- Total sessions run
-- Total credits spent
-- Average confidence score
-- Average accuracy (when available)
-- Agent usage distribution
-- Verdict distribution (BUY/HOLD/SELL)
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3001/api
+- **Health Check**: http://localhost:3001/health
 
-## 🎯 Future Enhancements
+## 🔐 Демо-доступ
 
-- [ ] Real-time market data integration
-- [ ] Custom agent creation
-- [ ] Portfolio tracking
-- [ ] Alert system for verdicts
-- [ ] Mobile app
-- [ ] API for third-party integrations
-- [ ] Advanced charting tools
-- [ ] Social features (comments, discussions)
+После запуска `npm run db:seed`:
+- Email: `demo@synapse.ai`
+- Password: `demo123`
+- Credits: 847
+- Plan: PRO
 
-## 📝 License
+## 📚 API Документация
 
-This is a demo project for educational purposes.
+### Authentication
+```
+POST /api/auth/register    - Регистрация
+POST /api/auth/login       - Вход
+POST /api/auth/logout      - Выход
+```
 
-## 🤝 Contributing
+### Users
+```
+GET    /api/users/me          - Профиль
+PUT    /api/users/me          - Обновить профиль
+GET    /api/users/me/stats    - Статистика
+```
 
-This is a demonstration project. For production use, consider:
-- Adding backend API
-- Implementing real authentication
-- Integrating actual market data
-- Adding payment processing
-- Implementing rate limiting
-- Adding error tracking
+### Agents
+```
+GET /api/agents              - Список агентов
+GET /api/agents/:id          - Агент по ID
+GET /api/agents/:id/profile  - Профиль агента
+```
+
+### Analysis
+```
+POST /api/analysis/run       - Запустить анализ
+GET  /api/analysis/:id       - Результат
+GET  /api/analysis/history   - История
+```
+
+## 🧪 Тестирование API
+
+**Через скрипт:**
+```bash
+cd backend
+chmod +x scripts/test-api.sh
+./scripts/test-api.sh
+```
+
+**Через curl:**
+```bash
+# Войти
+TOKEN=$(curl -s -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@synapse.ai","password":"demo123"}' | jq -r '.token')
+
+# Получить агентов
+curl http://localhost:3001/api/agents
+
+# Запустить анализ
+curl -X POST http://localhost:3001/api/analysis/run \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"ticker":"AAPL","agents":["tech","fund","news"]}'
+```
+
+**Через Postman:**
+Импортируйте `backend/postman_collection.json`
+
+## 📊 База данных
+
+**Просмотр данных:**
+```bash
+cd backend
+npm run db:studio
+```
+
+Откроется Prisma Studio на http://localhost:5555
+
+**SQL запросы:**
+```bash
+psql -U postgres -d synapse_judgement
+
+SELECT * FROM users;
+SELECT * FROM sessions;
+SELECT * FROM agent_verdicts;
+```
+
+## 📝 Логи
+
+```bash
+# Backend логи
+tail -f backend/logs/combined.log
+tail -f backend/logs/error.log
+
+# Frontend логи (в терминале где запущен)
+```
+
+## 🗂 Структура проекта
+
+```
+synapse-judgement/
+├── frontend/              # React + TypeScript + Tailwind
+│   ├── src/
+│   │   ├── components/   # UI компоненты
+│   │   ├── lib/          # Утилиты, хуки, роутер
+│   │   ├── data/         # Мок-данные
+│   │   └── App.tsx       # Главный компонент
+│   └── package.json
+│
+├── backend/               # Node.js + Express + TypeScript
+│   ├── src/
+│   │   ├── controllers/  # Обработка запросов
+│   │   ├── services/     # Бизнес-логика
+│   │   ├── routes/       # API эндпоинты
+│   │   ├── middleware/   # Auth, validation, errors
+│   │   ├── utils/        # Logger, Prisma client
+│   │   └── index.ts      # Точка входа
+│   ├── prisma/
+│   │   ├── schema.prisma # Схема БД
+│   │   └── seed.ts       # Тестовые данные
+│   ├── scripts/          # SQL скрипты, тесты
+│   ├── logs/             # Логи
+│   └── package.json
+│
+├── quick-start.sh         # Автоматическая установка
+└── README.md             # Этот файл
+```
+
+## 🔧 Переменные окружения
+
+### Backend (.env)
+```env
+PORT=3001
+NODE_ENV=development
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/synapse_judgement"
+JWT_SECRET="your-secret-key"
+FRONTEND_URL="http://localhost:5173"
+LOG_LEVEL="debug"
+```
+
+## 🐛 Отладка
+
+**Backend не запускается:**
+1. Проверьте PostgreSQL: `pg_isready`
+2. Проверьте `.env` в `backend/`
+3. Проверьте логи: `tail -f backend/logs/error.log`
+
+**Frontend не подключается:**
+1. Убедитесь что backend запущен на порту 3001
+2. Проверьте CORS настройки в `backend/src/index.ts`
+
+**Ошибки базы данных:**
+```bash
+cd backend
+npm run db:generate
+npm run db:push
+npm run db:seed
+```
+
+## 📈 Production
+
+### Backend
+```bash
+cd backend
+npm run build
+npm start
+```
+
+### Frontend
+```bash
+cd frontend
+npm run build
+# Разместите dist/ на хостинге
+```
+
+### Docker
+```bash
+# Backend
+docker build -t synapse-backend backend/
+docker run -p 3001:3001 synapse-backend
+
+# Frontend
+docker build -t synapse-frontend frontend/
+docker run -p 80:80 synapse-frontend
+```
+
+## 💡 Следующие шаги
+
+1. **Интеграция с AI**
+   - Замените мок-данные в `backend/src/services/analysis.service.ts`
+   - Добавьте OpenAI/Anthropic API
+
+2. **Реальные данные**
+   - Интеграция с Alpha Vantage, Yahoo Finance
+   - Парсинг новостей
+
+3. **Платежи**
+   - Stripe интеграция
+   - Управление подписками
+
+4. **Деплой**
+   - Выберите хостинг
+   - Настройте домен и SSL
+   - Настройте мониторинг
+
+## 📞 Поддержка
+
+При проблемах:
+1. Проверьте логи
+2. Убедитесь что все зависимости установлены
+3. Проверьте переменные окружения
+4. Пересоздайте Prisma Client
+
+## 📄 Лицензия
+
+MIT
 
 ---
 
-**Built with React, TypeScript, and Tailwind CSS**
+**Создано с ❤️ для инвестиционного анализа**
