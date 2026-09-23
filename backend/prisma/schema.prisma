@@ -1,0 +1,123 @@
+// Prisma Schema for Synapse Judgement
+// Run: npx prisma generate && npx prisma db push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  avatar        String    @default("🎯")
+  plan          Plan      @default(FREE)
+  credits       Int       @default(50)
+  referralCode  String    @unique
+  referredById  String?
+  referredBy    User?     @relation("Referrals", fields: [referredById], references: [id])
+  referrals     User[]    @relation("Referrals")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  transactions  Transaction[]
+
+  @@map("users")
+}
+
+model Session {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker          String
+  agents          String[]
+  portfolio       Float?
+  status          SessionStatus @default(RUNNING)
+  verdict         Verdict?
+  verdictWord     String?
+  confidence      Int?
+  targetPrice     Float?
+  basePrice       Float?
+  composite       Float?
+  consensusBull   Int           @default(0)
+  consensusFlat   Int           @default(0)
+  consensusBear   Int           @default(0)
+  rationale       String[]
+  cost            Int
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+
+  agentVerdicts   AgentVerdict[]
+
+  @@index([userId])
+  @@index([ticker])
+  @@map("sessions")
+}
+
+model AgentVerdict {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  agentId     String
+  signal      Signal
+  score       Float
+  confidence  Int
+  lines       String[]
+  metrics     Json
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("agent_verdicts")
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        TransactionType
+  amount      Int
+  description String
+  sessionId   String?
+  createdAt   DateTime          @default(now())
+
+  @@index([userId])
+  @@map("transactions")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SessionStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum Verdict {
+  BUY
+  HOLD
+  SELL
+}
+
+enum Signal {
+  BULL
+  BEAR
+  FLAT
+}
+
+enum TransactionType {
+  ANALYSIS
+  UPGRADE
+  CREDITS_PURCHASE
+  REFERRAL_BONUS
+  WELCOME_BONUS
+}
