@@ -39,7 +39,7 @@ jobs:
         run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
 
       - name: Cache frontend dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: frontend/node_modules
           key: ${{ runner.os }}-frontend-node-modules-${{ hashFiles('frontend/package-lock.json') }}
@@ -47,7 +47,7 @@ jobs:
             ${{ runner.os }}-frontend-node-modules-
 
       - name: Cache backend dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: backend/node_modules
           key: ${{ runner.os }}-backend-node-modules-${{ hashFiles('backend/package-lock.json') }}
