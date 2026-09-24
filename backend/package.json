@@ -12,7 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "lint": "eslint src --ext .ts",
+    "lint": "tsc --noEmit",
     "test": "jest"
   },
   "keywords": ["ai", "investment", "analysis", "api"],

@@ -32,10 +32,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+
+      - name: Get npm cache directory
+        id: npm-cache-dir
+        shell: bash
+        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+      - name: Cache frontend dependencies
+        uses: actions/cache@v3
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-frontend-node-modules-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-node-modules-
+
+      - name: Cache backend dependencies
+        uses: actions/cache@v3
+        with:
+          path: backend/node_modules
+          key: ${{ runner.os }}-backend-node-modules-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-backend-node-modules-
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: cd frontend && npm ci
 
       - name: Install backend dependencies
         run: cd backend && npm ci
@@ -49,11 +69,14 @@ jobs:
       - name: Generate Prisma Client
         run: cd backend && npm run db:generate
 
-      - name: Run linter
-        run: npm run lint
+      - name: Type check frontend
+        run: cd frontend && npm run lint
+
+      - name: Type check backend
+        run: cd backend && npm run lint
 
       - name: Build frontend
-        run: npm run build
+        run: cd frontend && npm run build
 
       - name: Build backend
         run: cd backend && npm run build
