@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: synapse_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm run install:all
+    
+    - name: Setup backend environment
+      run: |
+        cd backend
+        cp .env.example .env
+        sed -i 's|postgresql://.*|postgresql://test:test@localhost:5432/synapse_test|' .env
+    
+    - name: Generate Prisma Client
+      run: cd backend && npm run db:generate
+    
+    - name: Run linter
+      run: npm run lint
+    
+    - name: Run tests
+      run: npm test
+      env:
+        DATABASE_URL: postgresql://test:test@localhost:5432/synapse_test
+    
+    - name: Build
+      run: npm run build
