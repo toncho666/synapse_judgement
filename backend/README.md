@@ -1,103 +1,63 @@
-# Synapse Judgement Backend
+# 🔧 Backend - Synapse Judgement
 
-Backend API для AI-платформы инвестиционного анализа Synapse Judgement.
+Node.js + Express + TypeScript API для AI-платформы инвестиционного анализа.
 
-## 🛠 Стек технологий
+## 📦 Технологии
 
-- **Runtime**: Node.js + TypeScript
-- **Framework**: Express.js
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Authentication**: JWT
-- **Validation**: Zod
-- **Logging**: Winston
-
-## 📋 Требования
-
-- Node.js 18+
-- PostgreSQL 14+
-- npm или yarn
+- **Node.js** - Runtime
+- **Express** - Web framework
+- **TypeScript** - Типизация
+- **Prisma** - ORM
+- **PostgreSQL** - Database
+- **JWT** - Authentication
+- **Winston** - Logging
 
 ## 🚀 Быстрый старт
 
-### 1. Установка зависимостей
-
 ```bash
+# Из корня проекта
+npm run install:backend
+cd backend
+npm run db:generate
+npm run db:push
+npm run db:seed
+npm run dev
+
+# Или напрямую
 cd backend
 npm install
-```
-
-### 2. Настройка базы данных
-
-Создайте базу данных PostgreSQL:
-
-```bash
-# Вариант 1: Через psql
-psql -U postgres
-CREATE DATABASE synapse_judgement;
-\q
-
-# Вариант 2: Через скрипт
-psql -U postgres -f scripts/setup-db.sql
-```
-
-### 3. Настройка переменных окружения
-
-Скопируйте `.env.example` в `.env` и настройте:
-
-```bash
-cp .env.example .env
-```
-
-Отредактируйте `.env`:
-
-```env
-DATABASE_URL="postgresql://postgres:your_password@localhost:5432/synapse_judgement?schema=public"
-JWT_SECRET="your-super-secret-jwt-key"
-FRONTEND_URL="http://localhost:5173"
-```
-
-### 4. Генерация Prisma Client
-
-```bash
 npm run db:generate
-```
-
-### 5. Применение миграций
-
-```bash
 npm run db:push
-```
-
-### 6. Заполнение тестовыми данными (опционально)
-
-```bash
 npm run db:seed
-```
-
-Это создаст демо-пользователя:
-- Email: `demo@synapse.ai`
-- Password: `demo123`
-
-### 7. Запуск сервера
-
-**Режим разработки:**
-```bash
 npm run dev
 ```
 
-**Production:**
-```bash
-npm run build
-npm start
+API доступен на http://localhost:3001
+
+## 📁 Структура
+
+```
+backend/
+├── src/
+│   ├── controllers/   # Обработка запросов
+│   ├── services/      # Бизнес-логика
+│   ├── routes/        # API эндпоинты
+│   ├── middleware/    # Auth, validation, errors
+│   ├── utils/         # Logger, Prisma client
+│   ├── config/        # Конфигурация
+│   └── index.ts       # Точка входа
+├── prisma/
+│   ├── schema.prisma  # Схема БД
+│   └── seed.ts        # Тестовые данные
+├── scripts/           # SQL скрипты, тесты
+├── logs/              # Логи
+├── .env               # Переменные окружения
+└── package.json
 ```
 
-Сервер запустится на `http://localhost:3001`
-
-## 📚 API Endpoints
+## 🌐 API Endpoints
 
 ### Authentication
-
 ```
 POST /api/auth/register    - Регистрация
 POST /api/auth/login       - Вход
@@ -105,234 +65,82 @@ POST /api/auth/logout      - Выход
 ```
 
 ### Users
-
 ```
-GET    /api/users/me          - Текущий пользователь
-PUT    /api/users/me          - Обновить профиль
-GET    /api/users/me/stats    - Статистика пользователя
+GET    /api/users/me          - Профиль
+PUT    /api/users/me          - Обновить
+GET    /api/users/me/stats    - Статистика
 ```
 
 ### Agents
-
 ```
-GET /api/agents              - Список всех агентов
+GET /api/agents              - Список агентов
 GET /api/agents/:id          - Агент по ID
-GET /api/agents/:id/profile  - Детальная страница агента
+GET /api/agents/:id/profile  - Детальная информация
 ```
 
 ### Analysis
-
 ```
 POST /api/analysis/run       - Запустить анализ
-GET  /api/analysis/:id       - Результат анализа
-GET  /api/analysis/history   - История анализов
+GET  /api/analysis/:id       - Результат
+GET  /api/analysis/history   - История
 ```
 
-## 🧪 Тестирование API
+## 🗄️ База данных
 
-### Регистрация
+### Таблицы
+- **users** - пользователи
+- **sessions** - сессии анализа
+- **agent_verdicts** - выводы агентов
+- **transactions** - транзакции
 
+### Скрипты
 ```bash
-curl -X POST http://localhost:3001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "name": "Test User",
-    "password": "password123"
-  }'
+npm run db:generate    # Генерация Prisma Client
+npm run db:push        # Применить схему
+npm run db:seed        # Загрузить тестовые данные
+npm run db:studio      # Открыть Prisma Studio
+npm run db:reset       # Сбросить БД
 ```
-
-### Вход
-
-```bash
-curl -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "demo@synapse.ai",
-    "password": "demo123"
-  }'
-```
-
-Сохраните токен из ответа:
-
-```bash
-TOKEN="your-jwt-token-here"
-```
-
-### Получить профиль
-
-```bash
-curl http://localhost:3001/api/users/me \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Получить список агентов
-
-```bash
-curl http://localhost:3001/api/agents
-```
-
-### Запустить анализ
-
-```bash
-curl -X POST http://localhost:3001/api/analysis/run \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "ticker": "AAPL",
-    "agents": ["tech", "fund", "news"],
-    "portfolio": 100000
-  }'
-```
-
-### Получить результат анализа
-
-```bash
-curl http://localhost:3001/api/analysis/{sessionId} \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Получить историю
-
-```bash
-curl http://localhost:3001/api/analysis/history \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-## 📊 Структура базы данных
-
-### Users
-- id, email, name, passwordHash
-- avatar, plan, credits, referralCode
-
-### Sessions
-- id, userId, ticker, agents
-- status, verdict, confidence
-- targetPrice, basePrice, cost
-
-### AgentVerdicts
-- id, sessionId, agentId
-- signal, score, confidence
-- lines, metrics
-
-### Transactions
-- id, userId, type, amount
-- description, sessionId
 
 ## 🔐 Аутентификация
 
-Используется JWT токены. Добавьте токен в заголовок:
-
+JWT токены в заголовке:
 ```
-Authorization: Bearer <your-token>
+Authorization: Bearer <token>
 ```
 
-Токен возвращается при регистрации и входе.
+## 📝 Переменные окружения
 
-## 📝 Логирование
+```env
+PORT=3001
+NODE_ENV=development
+DATABASE_URL="postgresql://user@localhost:5432/synapse_judgement"
+JWT_SECRET="your-secret-key"
+FRONTEND_URL="http://localhost:5173"
+LOG_LEVEL="debug"
+```
 
-Логи сохраняются в:
-- `logs/error.log` - ошибки
+## 📊 Логи
+
 - `logs/combined.log` - все логи
+- `logs/error.log` - только ошибки
 
-Уровень логирования настраивается в `.env`:
-```env
-LOG_LEVEL="debug"  # debug, info, warn, error
-```
-
-## 🐛 Отладка
-
-### Проверка подключения к БД
+## 🧪 Тестирование
 
 ```bash
-npx prisma studio
+# Автоматический тест
+./scripts/test-api.sh
+
+# Через Postman
+# Импортируйте postman_collection.json
 ```
 
-Откроется веб-интерфейс для просмотра данных.
+## 📚 Документация
 
-### Проверка миграций
+- [Главный README](../README.md)
+- [Frontend Documentation](../frontend/README.md)
+- [Setup Guide](../SETUP_GUIDE.md)
 
-```bash
-npx prisma migrate status
-```
+---
 
-### Сброс базы данных
-
-```bash
-npx prisma migrate reset
-```
-
-## 📦 Скрипты
-
-```bash
-npm run dev          # Запуск в режиме разработки
-npm run build        # Сборка для production
-npm start            # Запуск production версии
-npm run db:generate  # Генерация Prisma Client
-npm run db:push      # Применение схемы к БД
-npm run db:migrate   # Создание миграции
-npm run db:seed      # Заполнение тестовыми данными
-npm run db:studio    # Открыть Prisma Studio
-```
-
-## 🌐 CORS
-
-Настроено для фронтенда на `http://localhost:5173`. Измените в `.env`:
-
-```env
-FRONTEND_URL="https://your-frontend.com"
-```
-
-## 🚨 Обработка ошибок
-
-Все ошибки логируются и возвращаются в формате:
-
-```json
-{
-  "error": "Error message",
-  "details": [...]  // для ошибок валидации
-}
-```
-
-## 📈 Production deployment
-
-### Переменные окружения
-
-Обязательно измените:
-- `JWT_SECRET` - используйте длинную случайную строку
-- `DATABASE_URL` - укажите production БД
-- `NODE_ENV=production`
-
-### PM2 (рекомендуется)
-
-```bash
-npm install -g pm2
-pm2 start dist/index.js --name synapse-backend
-pm2 save
-pm2 startup
-```
-
-### Docker
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3001
-CMD ["node", "dist/index.js"]
-```
-
-## 📞 Поддержка
-
-При возникновении проблем:
-1. Проверьте логи в `logs/`
-2. Убедитесь что PostgreSQL запущен
-3. Проверьте переменные в `.env`
-4. Пересоздайте Prisma Client: `npm run db:generate`
-
-## 📄 Лицензия
-
-MIT
+**Подробнее в [главном README](../README.md)**

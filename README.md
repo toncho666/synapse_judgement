@@ -1,26 +1,21 @@
-# 🎯 Synapse Judgement - Полный стек
+# 🎯 Synapse Judgement
 
 AI-платформа инвестиционного анализа с 5 агентами и Судьёй.
 
-## 📦 Что включено
+## 📦 Структура проекта
 
-### ✅ Frontend (React + TypeScript + Tailwind)
-- Лендинг с hero-секцией
-- Магазин агентов с iOS-тумблерами
-- Детальные страницы каждого агента
-- Дашборд результатов с визуализацией
-- Авторизация и личный кабинет
-- Лидерборд
-- Реферальная программа
-- Система достижений
+```
+synapse-judgement/
+├── frontend/              # React + Vite + Tailwind (порт 5173)
+├── backend/               # Node.js + Express + Prisma (порт 3001)
+├── scripts/               # Скрипты автоматизации
+├── docker/                # Docker конфигурации
+├── package.json           # Корневой orchestrator
+└── README.md              # Этот файл
+```
 
-### ✅ Backend (Node.js + Express + TypeScript)
-- REST API со всеми эндпоинтами
-- JWT аутентификация
-- PostgreSQL + Prisma ORM
-- Валидация данных (Zod)
-- Логирование (Winston)
-- Обработка ошибок
+**Frontend** находится в папке `frontend/` (порт 5173)  
+**Backend** находится в папке `backend/` (порт 3001)
 
 ## 🚀 Быстрый старт
 
@@ -29,50 +24,86 @@ AI-платформа инвестиционного анализа с 5 аге�
 - PostgreSQL 14+
 - npm
 
-### Автоматическая установка
+### 1. Установка зависимостей
 
 ```bash
-# Сделать скрипт исполняемым
-chmod +x quick-start.sh
+# Установить все зависимости
+npm run install:all
 
-# Запустить установку и запуск
-./quick-start.sh
+# Или по отдельности
+cd frontend && npm install
+cd ../backend && npm install
 ```
 
-### Ручная установка
+### 2. Настройка базы данных
 
-**1. Backend:**
 ```bash
+# Создать БД
+createdb synapse_judgement
+
+# Настроить backend/.env
 cd backend
-npm install
+cp .env.example .env
+# Отредактировать DATABASE_URL
+
+# Инициализировать БД
 npm run db:generate
 npm run db:push
 npm run db:seed
-npm run dev
 ```
 
-**2. Frontend:**
+### 3. Запуск
+
 ```bash
-cd frontend
-npm install
+# Запустить оба проекта
 npm run dev
+
+# Или по отдельности
+npm run dev:frontend   # http://localhost:5173
+npm run dev:backend    # http://localhost:3001
 ```
 
-## 📍 URLs
+### 4. Открыть в браузере
 
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:3001/api
-- **Health Check**: http://localhost:3001/health
 
-## 🔐 Демо-доступ
-
-После запуска `npm run db:seed`:
+**Демо-доступ:**
 - Email: `demo@synapse.ai`
 - Password: `demo123`
-- Credits: 847
-- Plan: PRO
 
-## 📚 API Документация
+## 📚 Документация
+
+- [Frontend README](./frontend/README.md)
+- [Backend README](./backend/README.md)
+- [Setup Guide](./SETUP_GUIDE.md)
+- [Architecture](./ARCHITECTURE.md)
+
+## 🛠 Команды
+
+```bash
+npm run dev              # Запустить frontend + backend
+npm run dev:frontend     # Только frontend
+npm run dev:backend      # Только backend
+npm run build            # Собрать production
+npm run install:all      # Установить все зависимости
+npm run db:push          # Применить схему БД
+npm run db:seed          # Загрузить тестовые данные
+npm run db:studio        # Открыть Prisma Studio
+```
+
+## 🔄 Реструктуризация проекта
+
+Если у вас старая структура (frontend в корне), выполните:
+
+```bash
+chmod +x scripts/restructure.sh
+./scripts/restructure.sh
+```
+
+Подробная инструкция: [RESTRUCTURE_GUIDE.md](./RESTRUCTURE_GUIDE.md)
+
+## 🌐 API Endpoints
 
 ### Authentication
 ```
@@ -84,7 +115,7 @@ POST /api/auth/logout      - Выход
 ### Users
 ```
 GET    /api/users/me          - Профиль
-PUT    /api/users/me          - Обновить профиль
+PUT    /api/users/me          - Обновить
 GET    /api/users/me/stats    - Статистика
 ```
 
@@ -92,7 +123,7 @@ GET    /api/users/me/stats    - Статистика
 ```
 GET /api/agents              - Список агентов
 GET /api/agents/:id          - Агент по ID
-GET /api/agents/:id/profile  - Профиль агента
+GET /api/agents/:id/profile  - Детальная информация
 ```
 
 ### Analysis
@@ -102,179 +133,98 @@ GET  /api/analysis/:id       - Результат
 GET  /api/analysis/history   - История
 ```
 
-## 🧪 Тестирование API
+## 🐳 Docker
 
-**Через скрипт:**
 ```bash
-cd backend
-chmod +x scripts/test-api.sh
-./scripts/test-api.sh
+# Запустить всё через Docker Compose
+docker-compose up -d
+
+# Остановить
+docker-compose down
 ```
 
-**Через curl:**
+## 🧪 Тестирование
+
 ```bash
-# Войти
-TOKEN=$(curl -s -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"demo@synapse.ai","password":"demo123"}' | jq -r '.token')
+# Тесты backend
+cd backend && npm test
 
-# Получить агентов
-curl http://localhost:3001/api/agents
-
-# Запустить анализ
-curl -X POST http://localhost:3001/api/analysis/run \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"ticker":"AAPL","agents":["tech","fund","news"]}'
+# API тесты через скрипт
+cd backend && ./scripts/test-api.sh
 ```
 
-**Через Postman:**
-Импортируйте `backend/postman_collection.json`
-
-## 📊 База данных
-
-**Просмотр данных:**
-```bash
-cd backend
-npm run db:studio
-```
-
-Откроется Prisma Studio на http://localhost:5555
-
-**SQL запросы:**
-```bash
-psql -U postgres -d synapse_judgement
-
-SELECT * FROM users;
-SELECT * FROM sessions;
-SELECT * FROM agent_verdicts;
-```
-
-## 📝 Логи
+## 📊 Мониторинг
 
 ```bash
-# Backend логи
+# Логи backend
 tail -f backend/logs/combined.log
-tail -f backend/logs/error.log
 
-# Frontend логи (в терминале где запущен)
+# Prisma Studio (веб-интерфейс БД)
+cd backend && npm run db:studio
 ```
 
-## 🗂 Структура проекта
-
-```
-synapse-judgement/
-├── frontend/              # React + TypeScript + Tailwind
-│   ├── src/
-│   │   ├── components/   # UI компоненты
-│   │   ├── lib/          # Утилиты, хуки, роутер
-│   │   ├── data/         # Мок-данные
-│   │   └── App.tsx       # Главный компонент
-│   └── package.json
-│
-├── backend/               # Node.js + Express + TypeScript
-│   ├── src/
-│   │   ├── controllers/  # Обработка запросов
-│   │   ├── services/     # Бизнес-логика
-│   │   ├── routes/       # API эндпоинты
-│   │   ├── middleware/   # Auth, validation, errors
-│   │   ├── utils/        # Logger, Prisma client
-│   │   └── index.ts      # Точка входа
-│   ├── prisma/
-│   │   ├── schema.prisma # Схема БД
-│   │   └── seed.ts       # Тестовые данные
-│   ├── scripts/          # SQL скрипты, тесты
-│   ├── logs/             # Логи
-│   └── package.json
-│
-├── quick-start.sh         # Автоматическая установка
-└── README.md             # Этот файл
-```
-
-## 🔧 Переменные окружения
+## 📝 Переменные окружения
 
 ### Backend (.env)
 ```env
 PORT=3001
 NODE_ENV=development
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/synapse_judgement"
+DATABASE_URL="postgresql://user@localhost:5432/synapse_judgement"
 JWT_SECRET="your-secret-key"
 FRONTEND_URL="http://localhost:5173"
 LOG_LEVEL="debug"
 ```
 
-## 🐛 Отладка
+## 🚨 Решение проблем
 
-**Backend не запускается:**
-1. Проверьте PostgreSQL: `pg_isready`
-2. Проверьте `.env` в `backend/`
-3. Проверьте логи: `tail -f backend/logs/error.log`
+### PostgreSQL не запускается
+```bash
+# macOS
+brew services start postgresql@15
 
-**Frontend не подключается:**
-1. Убедитесь что backend запущен на порту 3001
-2. Проверьте CORS настройки в `backend/src/index.ts`
+# Linux
+sudo systemctl start postgresql
+```
 
-**Ошибки базы данных:**
+### Порт занят
+```bash
+# Найти процесс
+lsof -i :3001  # или :5173
+
+# Убить процесс
+kill -9 <PID>
+```
+
+### Ошибки Prisma
 ```bash
 cd backend
 npm run db:generate
 npm run db:push
-npm run db:seed
 ```
 
-## 📈 Production
+## 🎯 Следующие шаги
 
-### Backend
-```bash
-cd backend
-npm run build
-npm start
-```
+1. **Изучите код**
+   - `frontend/src/App.tsx` - главный компонент
+   - `backend/src/services/analysis.service.ts` - логика анализа
+   - `backend/prisma/schema.prisma` - схема БД
 
-### Frontend
-```bash
-cd frontend
-npm run build
-# Разместите dist/ на хостинге
-```
+2. **Добавьте AI модели**
+   - Замените мок-данные в `analysis.service.ts`
+   - Интегрируйте OpenAI/Anthropic API
 
-### Docker
-```bash
-# Backend
-docker build -t synapse-backend backend/
-docker run -p 3001:3001 synapse-backend
+3. **Деплой**
+   - Frontend: Vercel, Netlify
+   - Backend: Railway, Render, AWS
+   - Database: Supabase, Neon, Railway
 
-# Frontend
-docker build -t synapse-frontend frontend/
-docker run -p 80:80 synapse-frontend
-```
+## 🤝 Вклад в проект
 
-## 💡 Следующие шаги
-
-1. **Интеграция с AI**
-   - Замените мок-данные в `backend/src/services/analysis.service.ts`
-   - Добавьте OpenAI/Anthropic API
-
-2. **Реальные данные**
-   - Интеграция с Alpha Vantage, Yahoo Finance
-   - Парсинг новостей
-
-3. **Платежи**
-   - Stripe интеграция
-   - Управление подписками
-
-4. **Деплой**
-   - Выберите хостинг
-   - Настройте домен и SSL
-   - Настройте мониторинг
-
-## 📞 Поддержка
-
-При проблемах:
-1. Проверьте логи
-2. Убедитесь что все зависимости установлены
-3. Проверьте переменные окружения
-4. Пересоздайте Prisma Client
+1. Fork репозитория
+2. Создайте ветку (`git checkout -b feature/amazing-feature`)
+3. Commit изменения (`git commit -m 'Add amazing feature'`)
+4. Push в ветку (`git push origin feature/amazing-feature`)
+5. Откройте Pull Request
 
 ## 📄 Лицензия
 
