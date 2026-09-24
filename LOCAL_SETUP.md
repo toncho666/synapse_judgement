@@ -1,6 +1,6 @@
-# 🚀 Локальный запуск проекта
+# 🚀 Локальный запуск Synapse Judgement
 
-Полная пошаговая инструкция по запуску Synapse Judgement на вашем компьютере.
+Пошаговая инструкция по запуску проекта на вашем компьютере.
 
 ---
 
@@ -16,34 +16,42 @@ node --version   # Должно показать v18.x.x или выше
 npm --version    # Должно показать 9.x.x или выше
 ```
 
-**Установка:**
-- **macOS:** `brew install node@20`
-- **Windows:** Скачайте с https://nodejs.org/
-- **Linux:** https://nodejs.org/en/download/package-manager
+**Если не установлены:**
+
+macOS (Homebrew):
+```bash
+brew install node@20
+```
+
+Windows/Linux:
+Скачайте с [nodejs.org](https://nodejs.org/) (LTS версия)
 
 ### 2. PostgreSQL 14+
 
 **Проверка:**
 ```bash
 psql --version   # Должно показать 14.x или выше
+pg_isready       # Должно показать: accepting connections
 ```
 
-**Установка:**
-- **macOS:** `brew install postgresql@15 && brew services start postgresql@15`
-- **Windows:** Скачайте с https://www.postgresql.org/download/windows/
-- **Linux:** `sudo apt install postgresql postgresql-contrib`
+**Если не установлен:**
 
-### 3. Git
-
-**Проверка:**
+macOS (Homebrew):
 ```bash
-git --version
+brew install postgresql@15
+brew services start postgresql@15
 ```
 
-**Установка:**
-- **macOS:** `brew install git`
-- **Windows:** https://git-scm.com/download/win
-- **Linux:** `sudo apt install git`
+Linux (Ubuntu/Debian):
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+Windows:
+Скачайте с [postgresql.org/download/windows](https://www.postgresql.org/download/windows/)
 
 ---
 
@@ -80,162 +88,88 @@ cd ..
 ### Или одной командой из корня
 
 ```bash
-# Если есть корневой package.json с workspaces
-npm install
-
-# Или вручную
-cd frontend && npm install && cd ..
-cd backend && npm install && cd ..
+# Установить всё сразу
+npm run install:all
 ```
 
 ---
 
-## 🗄️ Шаг 3: Настройка PostgreSQL
+## 🗄️ Шаг 3: Настройка базы данных
 
-### 3.1. Убедитесь что PostgreSQL запущен
+### 3.1. Создайте базу данных
 
-**macOS:**
+**macOS/Linux:**
 ```bash
-brew services start postgresql@15
-pg_isready   # Должно показать: accepting connections
-```
-
-**Linux:**
-```bash
-sudo systemctl start postgresql
-sudo systemctl status postgresql
-```
-
-**Windows:**
-Проверьте что служба PostgreSQL запущена в Services.
-
-### 3.2. Создайте базу данных
-
-**Вариант A: Через командную строку**
-```bash
-# Создать базу данных
 createdb synapse_judgement
-
-# Проверить что создана
-psql -l | grep synapse_judgement
 ```
 
-**Вариант B: Через psql**
+**Windows (через psql):**
 ```bash
 psql -U postgres
-
-# Внутри psql:
 CREATE DATABASE synapse_judgement;
 \q
 ```
 
-### 3.3. Узнайте ваши credentials PostgreSQL
-
-**macOS (Homebrew):**
+**Проверьте что БД создана:**
 ```bash
-whoami   # Ваше имя пользователя (например: anton)
-# Пароль обычно не требуется для локального подключения
+psql -l | grep synapse_judgement
 ```
 
-**Linux:**
-```bash
-sudo -u postgres psql
-# Внутри psql:
-CREATE USER your_username WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE synapse_judgement TO your_username;
-\q
-```
-
-**Windows:**
-- Пользователь: `postgres`
-- Пароль: тот что вы указали при установке
-
----
-
-## 🔧 Шаг 4: Настройка переменных окружения
-
-### 4.1. Создайте .env файл для backend
+### 3.2. Настройте переменные окружения
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-### 4.2. Отредактируйте .env
+Откройте `backend/.env` в редакторе:
 
-Откройте `backend/.env` в редакторе и измените `DATABASE_URL`:
-
-**macOS (без пароля):**
-```env
-DATABASE_URL="postgresql://anton@localhost:5432/synapse_judgement?schema=public"
-```
-(замените `anton` на ваше имя пользователя)
-
-**Linux/Windows (с паролем):**
-```env
-DATABASE_URL="postgresql://postgres:your_password@localhost:5432/synapse_judgement?schema=public"
+```bash
+nano .env
+# или
+code .env
+# или
+vim .env
 ```
 
-**Полный пример .env:**
+**Измените `DATABASE_URL`:**
+
+macOS (без пароля):
 ```env
-# Server
-PORT=3001
-NODE_ENV=development
-
-# Database
-DATABASE_URL="postgresql://anton@localhost:5432/synapse_judgement?schema=public"
-
-# JWT
-JWT_SECRET="dev-secret-key-change-in-production-abc123xyz789"
-JWT_EXPIRES_IN="7d"
-
-# CORS
-FRONTEND_URL="http://localhost:5173"
-
-# Logging
-LOG_LEVEL="debug"
+DATABASE_URL="postgresql://ваш_username@localhost:5432/synapse_judgement?schema=public"
 ```
 
----
+Linux/Windows (с паролем):
+```env
+DATABASE_URL="postgresql://postgres:ваш_пароль@localhost:5432/synapse_judgement?schema=public"
+```
 
-## 🗃️ Шаг 5: Инициализация базы данных
+**Узнать ваше имя пользователя:**
+```bash
+whoami
+```
 
-### 5.1. Сгенерируйте Prisma Client
+Сохраните файл (`Ctrl+O`, `Enter`, `Ctrl+X` в nano).
+
+### 3.3. Инициализируйте базу данных
 
 ```bash
 cd backend
+
+# Сгенерировать Prisma Client
 npm run db:generate
-```
 
-**Ожидаемый вывод:**
-```
-✔ Generated Prisma Client
-```
-
-### 5.2. Примените схему к базе данных
-
-```bash
+# Применить схему к БД (создать таблицы)
 npm run db:push
-```
 
-**Ожидаемый вывод:**
-```
-Environment variables loaded from .env
-Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "synapse_judgement", schema "public" at "localhost:5432"
-
-🚀 Your database is now in sync with your Prisma schema. Done in 245ms
-```
-
-### 5.3. Загрузите тестовые данные
-
-```bash
+# Загрузить тестовые данные
 npm run db:seed
+
+cd ..
 ```
 
 **Ожидаемый вывод:**
 ```
-🌱 Starting database seed...
 ✅ Created demo user: demo@synapse.ai
 ✅ Created session: AAPL (BUY)
 ✅ Created session: TSLA (HOLD)
@@ -244,31 +178,38 @@ npm run db:seed
 🎉 Database seed completed successfully!
 ```
 
-### 5.4. Проверьте данные (опционально)
+### 3.4. Проверьте БД через Prisma Studio (опционально)
 
 ```bash
-# Открыть Prisma Studio (веб-интерфейс для просмотра БД)
+cd backend
 npm run db:studio
 ```
 
-Откроется http://localhost:5555 - можно просматривать таблицы.
+Откроется http://localhost:5555 - веб-интерфейс для просмотра данных.
+
+Проверьте:
+- Таблица `users` - есть пользователь `demo@synapse.ai`
+- Таблица `sessions` - есть 3 сессии
+- Таблица `transactions` - есть welcome bonus
+
+Закройте Prisma Studio: `Ctrl+C`
 
 ---
 
-## ▶️ Шаг 6: Запуск проекта
+## 🚀 Шаг 4: Запуск проекта
 
 ### Вариант A: Запуск обоих проектов одновременно
 
 **Из корня проекта:**
 ```bash
-# Если настроен concurrently в package.json
 npm run dev
-
-# Или используйте Makefile (macOS/Linux)
-make dev
 ```
 
-### Вариант B: Запуск по отдельности (рекомендуется для разработки)
+Это запустит:
+- Frontend на http://localhost:5173
+- Backend на http://localhost:3001
+
+### Вариант B: Запуск по отдельности
 
 **Терминал 1 - Backend:**
 ```bash
@@ -276,7 +217,7 @@ cd backend
 npm run dev
 ```
 
-**Ожидаемый вывод:**
+Ожидаемый вывод:
 ```
 🚀 Server running on port 3001
 📝 Environment: development
@@ -284,101 +225,283 @@ npm run dev
 📊 API available at http://localhost:3001/api
 ```
 
-**Терминал 2 - Frontend:**
+**Терминал 2 - Frontend (Cmd+N для нового терминала):**
 ```bash
 cd frontend
 npm run dev
 ```
 
-**Ожидаемый вывод:**
+Ожидаемый вывод:
 ```
-VITE v5.x.x  ready in 500 ms
+VITE v5.x.x  ready in xxx ms
 
 ➜  Local:   http://localhost:5173/
 ➜  Network: use --host to expose
-➜  press h + enter to show help
 ```
 
 ---
 
-## ✅ Шаг 7: Проверка что всё работает
+## 🌐 Шаг 5: Открытие в браузере
 
-### 7.1. Проверка Backend
+### Frontend
 
-**Health check:**
-```bash
-curl http://localhost:3001/health
-```
+Откройте браузер (Safari, Chrome, Firefox) и перейдите:
 
-**Ожидаемый ответ:**
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-02-20T12:00:00.000Z"
-}
-```
+**http://localhost:5173**
 
-**Получить список агентов:**
-```bash
-curl http://localhost:3001/api/agents
-```
-
-**Ожидаемый ответ:** Массив из 5 агентов (Technical, Fundamental, Portfolio, News, Earning Calls)
-
-### 7.2. Проверка Frontend
-
-Откройте браузер и перейдите на:
-```
-http://localhost:5173
-```
-
-**Что должно работать:**
-- ✅ Лендинг загружается
-- ✅ Видны 5 агентов
-- ✅ Можно кликнуть на агента и увидеть детальную страницу
-- ✅ Можно войти в систему
-
-### 7.3. Вход в систему
+### Вход в систему
 
 Используйте демо-доступ:
 - **Email:** `demo@synapse.ai`
 - **Password:** `demo123`
 
-**Что должно работать:**
-- ✅ Вход успешен
-- ✅ Видны кредиты (847)
-- ✅ Видна история сессий
-- ✅ Можно запустить новый анализ
+### Что проверить:
 
-### 7.4. Запуск анализа
+✅ Лендинг загружается  
+✅ Видны 5 агентов (Technical, Fundamental, Portfolio, News, Earning Calls)  
+✅ Можно кликнуть на агента и увидеть детальную страницу  
+✅ Можно войти в систему  
+✅ Видны кредиты (847)  
+✅ Можно запустить анализ (введите тикер, например AAPL)  
+✅ Результаты отображаются в дашборде  
+✅ Видна история анализов в личном кабинете  
+✅ Работает лидерборд  
 
-1. Введите тикер (например, `AAPL`)
-2. Выберите агентов (например, Technical, Fundamental, News)
-3. Нажмите "Run Analysis"
-4. Дождитесь результата (~3 секунды в демо)
+### Backend API
 
-**Ожидаемый результат:**
-- ✅ Вердикт (BUY/HOLD/SELL)
-- ✅ Confidence score
-- ✅ Выводы каждого агента
-- ✅ Обоснование Судьи
+Проверьте что API работает:
+
+```bash
+# Health check
+curl http://localhost:3001/health
+
+# Должно вернуть:
+# {"status":"ok","timestamp":"2026-..."}
+```
+
+Откройте в браузере:
+- http://localhost:3001/api/agents - список агентов
+
+---
+
+## 🧪 Шаг 6: Тестирование API
+
+### Через curl
+
+```bash
+# 1. Войти и получить токен
+TOKEN=$(curl -s -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@synapse.ai","password":"demo123"}' | jq -r '.token')
+
+echo "Token: $TOKEN"
+
+# 2. Получить профиль
+curl http://localhost:3001/api/users/me \
+  -H "Authorization: Bearer $TOKEN" | jq .
+
+# 3. Получить список агентов
+curl http://localhost:3001/api/agents | jq .
+
+# 4. Запустить анализ
+curl -X POST http://localhost:3001/api/analysis/run \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"ticker":"AAPL","agents":["tech","fund","news"]}' | jq .
+
+# 5. Подождать 3 секунды и получить результат
+sleep 3
+SESSION_ID=$(curl -s -X POST http://localhost:3001/api/analysis/run \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"ticker":"TSLA","agents":["tech","earn"]}' | jq -r '.sessionId')
+
+sleep 3
+curl http://localhost:3001/api/analysis/$SESSION_ID \
+  -H "Authorization: Bearer $TOKEN" | jq .
+```
+
+**Если `jq` не установлен:**
+```bash
+# macOS
+brew install jq
+
+# Linux
+sudo apt install jq
+```
+
+### Через автоматический скрипт
+
+```bash
+cd backend
+chmod +x scripts/test-api.sh
+./scripts/test-api.sh
+```
+
+### Через Postman
+
+1. Откройте Postman
+2. Импортируйте `backend/postman_collection.json`
+3. Используйте переменные `base_url` и `token`
+4. Токен автоматически сохранится после login/register
+
+---
+
+## 📊 Шаг 7: Мониторинг
+
+### Просмотр логов
+
+```bash
+# Логи backend (в терминале где запущен backend)
+# Логи видны в реальном времени
+
+# Или через файл
+tail -f backend/logs/combined.log
+
+# Только ошибки
+tail -f backend/logs/error.log
+```
+
+### Просмотр базы данных
+
+```bash
+# Через Prisma Studio
+cd backend
+npm run db:studio
+# Откроется http://localhost:5555
+
+# Через psql
+psql -d synapse_judgement
+
+# Посмотреть пользователей
+SELECT id, email, name, plan, credits FROM users;
+
+# Посмотреть сессии
+SELECT id, ticker, verdict, confidence, cost FROM sessions;
+
+# Выйти
+\q
+```
+
+---
+
+## 🛑 Остановка серверов
+
+### Остановить оба сервера
+
+**Терминал 1 (backend):** `Ctrl+C`  
+**Терминал 2 (frontend):** `Ctrl+C`
+
+### Остановить PostgreSQL
+
+**macOS:**
+```bash
+brew services stop postgresql@15
+```
+
+**Linux:**
+```bash
+sudo systemctl stop postgresql
+```
+
+### Запустить снова
+
+```bash
+# Терминал 1 - backend
+cd backend
+npm run dev
+
+# Терминал 2 - frontend
+cd frontend
+npm run dev
+```
+
+---
+
+## 📝 Полезные команды
+
+### Frontend
+
+```bash
+cd frontend
+
+# Запуск dev сервера
+npm run dev
+
+# Production сборка
+npm run build
+
+# Preview production сборки
+npm run preview
+
+# Проверка типов
+npm run lint
+```
+
+### Backend
+
+```bash
+cd backend
+
+# Запуск dev сервера
+npm run dev
+
+# Production сборка
+npm run build
+
+# Запуск production версии
+npm start
+
+# Prisma Studio
+npm run db:studio
+
+# Применить изменения схемы
+npm run db:push
+
+# Сбросить БД
+npx prisma migrate reset
+
+# Загрузить тестовые данные
+npm run db:seed
+```
+
+### Из корня проекта
+
+```bash
+# Запустить оба проекта
+npm run dev
+
+# Только frontend
+npm run dev:frontend
+
+# Только backend
+npm run dev:backend
+
+# Собрать production
+npm run build
+
+# Установить все зависимости
+npm run install:all
+
+# Открыть Prisma Studio
+npm run db:studio
+```
 
 ---
 
 ## 🐛 Решение типичных проблем
 
-### Проблема 1: "Cannot find module"
+### Проблема 1: "command not found: node"
 
 **Решение:**
 ```bash
-# Переустановите зависимости
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
+# macOS (Homebrew)
+echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 
-cd ../backend
-rm -rf node_modules package-lock.json
-npm install
+# Или через nvm
+source ~/.zshrc
+nvm use 20
 ```
 
 ### Проблема 2: "Connection refused" при подключении к БД
@@ -388,7 +511,6 @@ npm install
 # Проверьте что PostgreSQL запущен
 pg_isready
 
-# Если не запущен:
 # macOS
 brew services start postgresql@15
 
@@ -399,32 +521,21 @@ sudo systemctl start postgresql
 # Запустите службу PostgreSQL через Services
 ```
 
-### Проблема 3: "Database does not exist"
+### Проблема 3: "User postgres was denied access"
 
 **Решение:**
 ```bash
-# Создайте базу данных
-createdb synapse_judgement
+# Отредактируйте backend/.env
+nano backend/.env
 
-# Или через psql
-psql -U postgres -c "CREATE DATABASE synapse_judgement;"
+# Измените DATABASE_URL на ваше имя пользователя:
+# postgresql://ваш_username@localhost:5432/synapse_judgement
+
+# Узнать ваше имя:
+whoami
 ```
 
-### Проблема 4: "P1010: User was denied access"
-
-**Решение:** Проверьте `DATABASE_URL` в `backend/.env`:
-
-**macOS (без пароля):**
-```env
-DATABASE_URL="postgresql://ваш_логин@localhost:5432/synapse_judgement"
-```
-
-**Linux/Windows (с паролем):**
-```env
-DATABASE_URL="postgresql://postgres:пароль@localhost:5432/synapse_judgement"
-```
-
-### Проблема 5: "Port 3001 already in use"
+### Проблема 4: "Port 3001 already in use"
 
 **Решение:**
 ```bash
@@ -439,7 +550,7 @@ nano backend/.env
 # Измените PORT=3002
 ```
 
-### Проблема 6: "Port 5173 already in use"
+### Проблема 5: "Port 5173 already in use"
 
 **Решение:**
 ```bash
@@ -448,13 +559,27 @@ lsof -i :5173
 
 # Убить процесс
 kill -9 <PID>
-
-# Или изменить порт в frontend/vite.config.js
-nano frontend/vite.config.js
-# Измените port: 5174
 ```
 
-### Проблема 7: Frontend без стилей
+### Проблема 6: "Cannot find module" после npm install
+
+**Решение:**
+```bash
+# Удалите node_modules и переустановите
+cd frontend  # или backend
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Проблема 7: "Prisma Client not generated"
+
+**Решение:**
+```bash
+cd backend
+npm run db:generate
+```
+
+### Проблема 8: Фронтенд без стилей
 
 **Решение:**
 ```bash
@@ -463,181 +588,78 @@ rm -rf node_modules/.vite
 npm run dev
 ```
 
-### Проблема 8: "Prisma Client not generated"
+### Проблема 9: "Database does not exist"
 
 **Решение:**
 ```bash
+# Создать БД
+createdb synapse_judgement
+
+# Применить схему
 cd backend
-npm run db:generate
+npm run db:push
+
+# Загрузить данные
+npm run db:seed
 ```
 
-### Проблема 9: TypeScript ошибки
+### Проблема 10: Ошибки TypeScript
 
 **Решение:**
 ```bash
-# Проверьте типы frontend
 cd frontend
+rm -rf node_modules
+npm install
 npm run lint
-
-# Проверьте типы backend
-cd backend
-npm run lint
-```
-
-### Проблема 10: CORS ошибки в браузере
-
-**Решение:** Убедитесь что backend запущен на порту 3001 и frontend на 5173. Проверьте настройки CORS в `backend/src/index.ts`.
-
----
-
-## 📊 Полезные команды
-
-### Управление проектом
-
-```bash
-# Запустить оба проекта
-npm run dev
-
-# Только frontend
-npm run dev:frontend
-
-# Только backend
-npm run dev:backend
-
-# Собрать production версию
-npm run build
-
-# Проверить типы
-npm run lint
-```
-
-### Работа с базой данных
-
-```bash
-# Открыть Prisma Studio
-cd backend && npm run db:studio
-
-# Сбросить БД и пересоздать
-cd backend && npx prisma migrate reset
-
-# Применить изменения схемы
-cd backend && npm run db:push
-
-# Загрузить тестовые данные
-cd backend && npm run db:seed
-```
-
-### Мониторинг
-
-```bash
-# Логи backend
-tail -f backend/logs/combined.log
-
-# Только ошибки
-tail -f backend/logs/error.log
-
-# Проверить статус
-curl http://localhost:3001/health
-```
-
-### Git команды
-
-```bash
-# Статус
-git status
-
-# Добавить все изменения
-git add .
-
-# Коммит
-git commit -m "описание изменений"
-
-# Пуш
-git push origin main
 ```
 
 ---
 
-## 🎯 Быстрый старт (одной командой)
+## ✅ Чеклист успешного запуска
 
-Если всё уже настроено, просто выполните:
-
-```bash
-# Из корня проекта
-npm run dev
-
-# Или используйте Makefile
-make dev
-```
-
-Откройте:
-- Frontend: http://localhost:5173
-- Backend: http://localhost:3001
-
-Войдите:
-- Email: `demo@synapse.ai`
-- Password: `demo123`
-
----
-
-## 📝 Чеклист успешного запуска
-
-- [ ] Node.js 18+ установлен
-- [ ] PostgreSQL 14+ установлен и запущен
-- [ ] База данных `synapse_judgement` создана
-- [ ] Зависимости frontend установлены (`npm install`)
-- [ ] Зависимости backend установлены (`npm install`)
-- [ ] `backend/.env` настроен с правильным `DATABASE_URL`
-- [ ] Prisma Client сгенерирован (`npm run db:generate`)
-- [ ] Схема применена к БД (`npm run db:push`)
-- [ ] Тестовые данные загружены (`npm run db:seed`)
-- [ ] Backend запущен на порту 3001
-- [ ] Frontend запущен на порту 5173
-- [ ] Health check проходит (`curl http://localhost:3001/health`)
-- [ ] Frontend открывается в браузере
+- [ ] Node.js установлен (node --version показывает 18+)
+- [ ] PostgreSQL установлен и запущен (pg_isready)
+- [ ] База данных создана (psql -l | grep synapse_judgement)
+- [ ] Зависимости frontend установлены (frontend/node_modules существует)
+- [ ] Зависимости backend установлены (backend/node_modules существует)
+- [ ] Prisma Client сгенерирован (backend/node_modules/.prisma существует)
+- [ ] Схема применена к БД (таблицы видны в Prisma Studio)
+- [ ] Тестовые данные загружены (demo@synapse.ai виден в БД)
+- [ ] Backend запущен (http://localhost:3001/health работает)
+- [ ] Frontend запущен (http://localhost:5173 открывается)
 - [ ] Можно войти с demo@synapse.ai / demo123
-- [ ] Можно запустить анализ и увидеть результат
+- [ ] Можно запустить анализ и увидеть результаты
 
 ---
 
-## 🆘 Если ничего не помогает
+## 🎯 Что дальше?
 
-1. **Проверьте логи:**
-   ```bash
-   tail -f backend/logs/error.log
-   ```
+После успешного запуска:
 
-2. **Перезапустите PostgreSQL:**
-   ```bash
-   brew services restart postgresql@15  # macOS
-   sudo systemctl restart postgresql    # Linux
-   ```
+1. **Изучите код**
+   - `frontend/src/App.tsx` - главный компонент
+   - `backend/src/services/analysis.service.ts` - логика анализа
+   - `backend/prisma/schema.prisma` - схема БД
 
-3. **Полный сброс:**
-   ```bash
-   # Удалить node_modules
-   rm -rf frontend/node_modules backend/node_modules
-   
-   # Переустановить
-   cd frontend && npm install && cd ..
-   cd backend && npm install && cd ..
-   
-   # Сбросить БД
-   cd backend
-   npx prisma migrate reset
-   npm run db:seed
-   ```
+2. **Протестируйте API**
+   - Импортируйте `backend/postman_collection.json` в Postman
+   - Протестируйте все эндпоинты
 
-4. **Проверьте версии:**
-   ```bash
-   node --version
-   npm --version
-   psql --version
-   ```
+3. **Добавьте AI модели**
+   - Замените мок-данные в `analysis.service.ts`
+   - Интегрируйте OpenAI/Anthropic API
+
+4. **Добавьте источники данных**
+   - Alpha Vantage, Yahoo Finance, Polygon.io
+
+5. **Деплой**
+   - Frontend: Vercel, Netlify
+   - Backend: Railway, Render, AWS
+   - Database: Supabase, Neon, Railway
 
 ---
 
-## 📚 Дополнительная информация
+## 📚 Документация
 
 - [README.md](./README.md) - главная документация
 - [backend/README.md](./backend/README.md) - backend документация
@@ -646,6 +668,66 @@ make dev
 
 ---
 
-**Удачи с запуском! 🚀**
+## 💡 Подсказки
 
-Если возникли проблемы, проверьте раздел "Решение типичных проблем" или создайте issue на GitHub.
+### Горячие клавиши Terminal
+
+- `Cmd+N` - новое окно терминала
+- `Cmd+T` - новая вкладка
+- `Cmd+W` - закрыть вкладку
+- `Ctrl+C` - остановить процесс
+- `Ctrl+L` - очистить экран
+- `Cmd+K` - очистить экран (в iTerm2)
+
+### Быстрый доступ к папкам
+
+```bash
+# Открыть текущую папку в Finder
+open .
+
+# Открыть в VS Code
+code .
+
+# Открыть в другом редакторе
+subl .  # Sublime Text
+atom .  # Atom
+```
+
+### Полезные alias
+
+Добавьте в `~/.zshrc`:
+
+```bash
+alias sj='cd /path/to/synapse-judgement'
+alias sjd='npm run dev'
+alias sjb='cd backend && npm run dev'
+alias sjf='cd frontend && npm run dev'
+alias sjdb='cd backend && npm run db:studio'
+```
+
+После добавления:
+```bash
+source ~/.zshrc
+```
+
+Теперь можно использовать:
+- `sj` - перейти в папку проекта
+- `sjd` - запустить оба проекта
+- `sjb` - запустить только backend
+- `sjf` - запустить только frontend
+- `sjdb` - открыть Prisma Studio
+
+---
+
+## 🎉 Готово!
+
+Теперь у вас работает полный стек:
+- ✅ Frontend на React (http://localhost:5173)
+- ✅ Backend на Node.js (http://localhost:3001)
+- ✅ PostgreSQL база данных
+- ✅ JWT аутентификация
+- ✅ REST API
+
+Можно начинать разработку! 🚀
+
+Если что-то не работает - проверьте раздел "Решение типичных проблем" или создайте issue на GitHub.
