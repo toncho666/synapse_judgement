@@ -6,6 +6,7 @@ import { useHashRoute } from "./lib/router";
 import { useReducedMotion, useScrolled, useCountUp } from "./lib/hooks";
 import { getUser, getSessions, getStats, logout, type User } from "./lib/auth";
 import { AGENTS, JUDGE_PRICE, JUDGE_NAME, runAnalysis, fmtMoney, plural, type AgentId, type SessionResult, type Signal } from "./lib/engine";
+import { useStocks } from "./hooks/useStocks";
 
 type Stage = "idle" | "running" | "agents" | "verdict";
 
@@ -244,9 +245,30 @@ function Nav({ user, onDashboard, onAuth }: { user: User | null; onDashboard: ()
 
 function Hero() {
   const [loaded, setLoaded] = useState(false);
+  const { stocks, loading, error } = useStocks();
+  
   useEffect(() => { const t = requestAnimationFrame(() => setLoaded(true)); return () => cancelAnimationFrame(t); }, []);
-  const TAPE = [["AAPL", "232.41", "+0.84%"], ["NVDA", "1042.10", "+2.31%"], ["MSFT", "468.22", "−0.35%"], ["TSLA", "244.60", "+1.12%"], ["AMZN", "186.90", "+0.48%"], ["GOOGL", "171.03", "−0.22%"], ["META", "512.44", "+1.87%"], ["S&P 500", "5472.10", "+0.41%"], ["NASDAQ", "17862.4", "+0.66%"], ["BTC", "64 230", "−1.24%"], ["ETH", "3 418", "+0.92%"], ["US 10Y", "4.21%", "+0.02"]] as const;
-  const TapeRow = () => (<>{TAPE.map(([s, p, c]) => (<span key={s} className="flex items-center gap-2 whitespace-nowrap"><span className="font-semibold text-ink">{s}</span><span className="text-sub">{p}</span><span className={c.startsWith("+") ? "text-mint" : "text-flame"}>{c}</span></span>))}</>);
+  
+  const TapeRow = () => (
+    <>
+      {loading && stocks.length === 0 ? (
+        <span className="flex items-center gap-2 text-sub">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+          Loading market data...
+        </span>
+      ) : (
+        stocks.map((stock) => (
+          <span key={stock.symbol} className="flex items-center gap-2 whitespace-nowrap">
+            <span className="font-semibold text-ink">{stock.symbol}</span>
+            <span className="text-sub">${stock.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span className={stock.change >= 0 ? "text-mint" : "text-flame"}>
+              {stock.change >= 0 ? "+" : ""}{stock.changePercent.toFixed(2)}%
+            </span>
+          </span>
+        ))
+      )}
+    </>
+  );
   const C = 280, R = 188;
   const nodes = AGENTS.map((a, i) => { const ang = ((-90 + i * 72) * Math.PI) / 180; return { ...a, x: C + R * Math.cos(ang), y: C + R * Math.sin(ang) }; });
   const pct = (v: number) => `${(v / 560) * 100}%`;

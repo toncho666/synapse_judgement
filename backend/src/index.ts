@@ -10,6 +10,8 @@ import authRoutes from './routes/auth.routes.js';
 import agentsRoutes from './routes/agents.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import userRoutes from './routes/user.routes.js';
+import stocksRoutes from './routes/stocks.routes.js';
+import { startBackgroundUpdates } from './services/stock.service.js';
 
 const app = express();
 
@@ -33,6 +35,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentsRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/stocks', stocksRoutes);
 
 // Error handling
 app.use(notFoundHandler);
@@ -44,6 +47,9 @@ app.listen(config.port, () => {
   logger.info(`📝 Environment: ${config.nodeEnv}`);
   logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
   logger.info(`📊 API available at http://localhost:${config.port}/api`);
+  
+  // Start background stock updates
+  startBackgroundUpdates();
 });
 
 export default app;

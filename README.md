@@ -133,6 +133,17 @@ GET  /api/analysis/:id       - Результат
 GET  /api/analysis/history   - История
 ```
 
+### Stocks (NEW!)
+```
+GET  /api/stocks             - Получить котировки
+POST /api/stocks/refresh     - Принудительное обновление
+GET  /api/stocks/status      - Статус кэша
+```
+
+**Автоматическое обновление**: Каждые 60 минут через Alpha Vantage API
+
+📚 **Настройка**: [QUICK_START_STOCKS.md](./QUICK_START_STOCKS.md)
+
 ## 🐳 Docker
 
 ```bash
