@@ -11,6 +11,7 @@ import agentsRoutes from './routes/agents.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import userRoutes from './routes/user.routes.js';
 import stocksRoutes from './routes/stocks.routes.js';
+import technicalAnalysisRoutes from './routes/technical-analysis.routes.js';
 import { startBackgroundUpdates } from './services/stock.service.js';
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/agents', agentsRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/stocks', stocksRoutes);
+app.use('/api/technical-analysis', technicalAnalysisRoutes);
 
 // Error handling
 app.use(notFoundHandler);

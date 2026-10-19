@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { AGENT_PAGES } from "../data/agentMock";
 import { type AgentDef, type AgentId } from "../lib/engine";
 import Icon from "./Icon";
+import TechnicalAnalysisPanel from "./TechnicalAnalysisPanel";
 
 interface Props {
   agent: AgentDef;
@@ -13,6 +15,8 @@ export default function AgentPage({ agent, selected, onToggle, goHome }: Props) 
   const data = AGENT_PAGES[agent.id];
   const inTeam = selected.includes(agent.id);
   const agentIdx = agent.id === "tech" ? "01" : agent.id === "fund" ? "02" : agent.id === "port" ? "03" : agent.id === "news" ? "04" : "05";
+  const [analysisTicker, setAnalysisTicker] = useState(data.sample.ticker);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   return (
     <div className="mx-auto max-w-6xl px-5 pb-24 pt-24 md:px-8 lg:pt-32">
@@ -110,6 +114,51 @@ export default function AgentPage({ agent, selected, onToggle, goHome }: Props) 
         <div className="mt-6 rounded-[22px] border border-dashed border-line bg-card/50 p-6 text-center">
           <p className="font-mono text-[11.5px] text-faint">Sample data for illustration. Live runs use real-time market data at execution time.</p>
         </div>
+      </section>
+
+      {/* Technical Analysis Section */}
+      <section className="mt-20">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="font-mono text-[12px] font-semibold uppercase tracking-[0.24em]" style={{ color: agent.color }}>Live Analysis</p>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.02em] md:text-4xl">Technical Analysis</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              value={analysisTicker}
+              onChange={(e) => setAnalysisTicker(e.target.value.toUpperCase())}
+              placeholder="Enter ticker (e.g., AAPL)"
+              className="rounded-full border border-line bg-white px-4 py-2 font-mono text-[14px] font-semibold text-ink transition-colors duration-300 focus:border-accent focus:outline-none"
+            />
+            <button
+              onClick={() => setShowAnalysis(!showAnalysis)}
+              className="inline-flex items-center gap-2 rounded-full px-6 py-2 font-bold text-white transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: agent.color }}
+            >
+              {showAnalysis ? "Hide Analysis" : "Run Analysis"}
+              <Icon name={showAnalysis ? "arrowDown" : "play"} size={16} />
+            </button>
+          </div>
+        </div>
+        
+        {showAnalysis && (
+          <div className="mt-8">
+            <TechnicalAnalysisPanel ticker={analysisTicker} />
+          </div>
+        )}
+        
+        {!showAnalysis && (
+          <div className="mt-8 rounded-[22px] border border-dashed border-line bg-card/50 p-8 text-center">
+            <Icon name="gauge" size={48} className="mx-auto text-faint" />
+            <p className="mt-4 text-[15px] text-sub">
+              Click "Run Analysis" to get real-time technical analysis with 12+ indicators
+            </p>
+            <p className="mt-2 text-[13px] text-faint">
+              Includes RSI, MACD, Bollinger Bands, Moving Averages, and more
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="mt-20">
