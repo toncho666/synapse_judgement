@@ -180,6 +180,8 @@ curl http://localhost:3001/api/technical-analysis/AAPL
 
 ## 📚 Документация
 
+- **[VSCODE_SETUP.md](./VSCODE_SETUP.md)** - 🚀 Полная инструкция по запуску в VSCode
+- **[VSCODE_CHEATSHEET.md](./VSCODE_CHEATSHEET.md)** - ⚡ Шпаргалка по горячим клавишам
 - [Backend README](./backend/README.md) - документация backend
 - [LICENSE](./LICENSE) - MIT лицензия
 

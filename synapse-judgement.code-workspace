@@ -1,0 +1,31 @@
+{
+  "folders": [
+    {
+      "name": "📦 Synapse Judgement (Root)",
+      "path": "."
+    },
+    {
+      "name": "🎨 Frontend",
+      "path": "frontend"
+    },
+    {
+      "name": "⚙️ Backend",
+      "path": "backend"
+    },
+    {
+      "name": "🐳 Docker",
+      "path": "docker"
+    },
+    {
+      "name": "📜 Scripts",
+      "path": "scripts"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.git": true
+    }
+  }
+}
