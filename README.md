@@ -6,11 +6,11 @@ AI-платформа инвестиционного анализа с 5 спе�
 
 ```
 synapse-judgement/
-├── frontend/              # React + Vite + Tailwind (порт 5173)
+├── frontend/              # React + Vite + Tailwind CSS (порт 5173)
 │   ├── src/
 │   │   ├── components/    # React компоненты
-│   │   ├── hooks/         # Custom hooks (useStocks, useTechnicalAnalysis)
-│   │   ├── lib/           # Утилиты (auth, engine, router)
+│   │   ├── hooks/         # Custom hooks
+│   │   ├── lib/           # Утилиты
 │   │   └── data/          # Мок-данные
 │   ├── package.json
 │   └── vite.config.js
@@ -22,7 +22,7 @@ synapse-judgement/
 │   │   ├── routes/        # API endpoints
 │   │   ├── middleware/    # Auth, validation, errors
 │   │   └── utils/         # Logger, Prisma client
-│   ├── prisma/            # Схема БД и миграции
+│   ├── prisma/            # Схема БД
 │   └── package.json
 │
 ├── scripts/               # Скрипты автоматизации
@@ -42,11 +42,11 @@ synapse-judgement/
 
 ```bash
 # Установить все зависимости
-npm run install:all
+npm install
 
 # Или по отдельности
-cd frontend && npm install
-cd ../backend && npm install
+cd frontend && npm install && cd ..
+cd backend && npm install && cd ..
 ```
 
 ### 2. Настройка базы данных
@@ -64,6 +64,7 @@ nano .env  # Изменить DATABASE_URL
 npm run db:generate
 npm run db:push
 npm run db:seed
+cd ..
 ```
 
 ### 3. Запуск
@@ -116,7 +117,7 @@ GET  /api/analysis/:id       - Результат
 GET  /api/analysis/history   - История
 ```
 
-### Stocks (NEW!)
+### Stocks
 ```
 GET  /api/stocks             - Получить котировки
 POST /api/stocks/refresh     - Принудительное обновление
@@ -125,7 +126,7 @@ GET  /api/stocks/status      - Статус кэша
 
 **Автоматическое обновление**: Каждые 60 минут через Alpha Vantage API
 
-### Technical Analysis (NEW!)
+### Technical Analysis
 ```
 GET  /api/technical-analysis/:ticker        - Анализ тикера
 GET  /api/technical-analysis/cache/status   - Статус кэша
@@ -180,10 +181,7 @@ curl http://localhost:3001/api/technical-analysis/AAPL
 
 ## 📚 Документация
 
-- **[VSCODE_SETUP.md](./VSCODE_SETUP.md)** - 🚀 Полная инструкция по запуску в VSCode
-- **[VSCODE_CHEATSHEET.md](./VSCODE_CHEATSHEET.md)** - ⚡ Шпаргалка по горячим клавишам
 - [Backend README](./backend/README.md) - документация backend
-- [LICENSE](./LICENSE) - MIT лицензия
 
 ## 🐛 Решение проблем
 
@@ -207,6 +205,13 @@ kill -9 <PID>
 cd backend
 npm run db:generate
 npm run db:push
+```
+
+### Frontend без стилей
+```bash
+cd frontend
+rm -rf node_modules/.vite
+npm run dev
 ```
 
 ## 📄 Лицензия
