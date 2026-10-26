@@ -3,8 +3,8 @@
 
 import { getStockData } from './stock.service.js';
 
-// Finnhub API configuration
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
+// Alpha Vantage API configuration for historical data
+const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
 
 // ============ TYPES ============
 
@@ -629,50 +629,79 @@ export async function performTechnicalAnalysis(ticker: string): Promise<Technica
 }
 
 /**
- * Fetch historical data from Finnhub API
+ * Fetch historical data from Alpha Vantage API
  * Falls back to mock data if API fails
  */
 async function fetchHistoricalData(ticker: string) {
-  console.log(`🌐 Fetching historical data for ${ticker} from Finnhub...`);
+  console.log(`🌐 Fetching historical data for ${ticker} from Alpha Vantage...`);
   
-  if (!FINNHUB_API_KEY) {
-    console.warn(`⚠️  Finnhub API key not configured, using mock data`);
+  if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'demo') {
+    console.warn(`⚠️  Alpha Vantage API key not configured, using mock data`);
     return generateMockData(ticker);
   }
   
   try {
-    // Calculate date range (last 250 days)
-    const endDate = Math.floor(Date.now() / 1000);
-    const startDate = endDate - (250 * 24 * 60 * 60); // 250 days in seconds
-    
-    // Finnhub candle API: https://finnhub.io/api/v1/stock/candle?symbol=AAPL&resolution=D&from=...&to=...
-    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${ticker}&resolution=D&from=${startDate}&to=${endDate}&token=${FINNHUB_API_KEY}`;
+    // Alpha Vantage TIME_SERIES_DAILY API
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${ALPHA_VANTAGE_API_KEY}`;
     
     const response = await fetch(url);
     
     if (!response.ok) {
-      console.warn(`⚠️  Finnhub API error for ${ticker}: ${response.status}`);
+      console.warn(`⚠️  Alpha Vantage API error for ${ticker}: ${response.status}`);
       return generateMockData(ticker);
     }
     
     const data = await response.json();
     
-    // Finnhub returns: { s: 'status', o: opens, h: highs, l: lows, c: closes, v: volumes, t: timestamps }
-    if (data.s !== 'ok' || !data.c || data.c.length === 0) {
-      console.warn(`⚠️  No historical data available for ${ticker}, using mock data`);
+    // Check for API error messages
+    if (data['Error Message']) {
+      console.error(`❌ Alpha Vantage API error for ${ticker}:`, data['Error Message']);
       return generateMockData(ticker);
     }
     
-    const latestPrice = data.c[data.c.length - 1];
-    console.log(`✅ Fetched REAL historical data for ${ticker}: ${data.c.length} days, latest price: $${latestPrice.toFixed(2)}`);
+    if (data['Note']) {
+      console.warn(`⚠️  Alpha Vantage API rate limit for ${ticker}:`, data['Note']);
+      return generateMockData(ticker);
+    }
     
-    return {
-      opens: data.o,
-      highs: data.h,
-      lows: data.l,
-      closes: data.c,
-      volumes: data.v
-    };
+    if (data['Information']) {
+      console.warn(`⚠️  Alpha Vantage API info for ${ticker}:`, data['Information']);
+      return generateMockData(ticker);
+    }
+    
+    // Alpha Vantage returns: { "Time Series (Daily)": { "2024-01-01": { "1. open": "...", "2. high": "...", "3. low": "...", "4. close": "...", "5. volume": "..." } } }
+    if (data['Time Series (Daily)']) {
+      const timeSeries = data['Time Series (Daily)'];
+      const dates = Object.keys(timeSeries).sort().slice(-250); // Last 250 days
+      
+      if (dates.length === 0) {
+        console.warn(`⚠️  No historical data available for ${ticker}, using mock data`);
+        return generateMockData(ticker);
+      }
+      
+      const opens: number[] = [];
+      const highs: number[] = [];
+      const lows: number[] = [];
+      const closes: number[] = [];
+      const volumes: number[] = [];
+      
+      dates.forEach(date => {
+        const dayData = timeSeries[date];
+        opens.push(parseFloat(dayData['1. open']));
+        highs.push(parseFloat(dayData['2. high']));
+        lows.push(parseFloat(dayData['3. low']));
+        closes.push(parseFloat(dayData['4. close']));
+        volumes.push(parseInt(dayData['5. volume']));
+      });
+      
+      const latestPrice = closes[closes.length - 1];
+      console.log(`✅ Fetched REAL historical data for ${ticker}: ${dates.length} days, latest price: $${latestPrice.toFixed(2)}`);
+      
+      return { opens, highs, lows, closes, volumes };
+    } else {
+      console.warn(`⚠️  Alpha Vantage API returned unexpected format for ${ticker}, using mock data`);
+      console.log('Response keys:', Object.keys(data));
+    }
   } catch (error) {
     console.error(`❌ Failed to fetch historical data for ${ticker}:`, error);
   }
@@ -688,15 +717,15 @@ async function fetchHistoricalData(ticker: string) {
 function generateMockData(ticker: string) {
   const days = 250;
   
-  // Use realistic base prices for common tickers (updated for late 2024)
+  // Use realistic base prices for common tickers (updated for October 2026)
   const tickerPrices: Record<string, number> = {
-    'AAPL': 225,
-    'MSFT': 420,
-    'GOOGL': 175,
-    'AMZN': 185,
-    'TSLA': 245,
-    'NVDA': 140,
-    'META': 575,
+    'AAPL': 343,
+    'MSFT': 530,
+    'GOOGL': 318,
+    'AMZN': 249,
+    'TSLA': 395,
+    'NVDA': 216,
+    'META': 639,
     'NFLX': 680,
     'AMD': 165,
     'INTC': 22,
