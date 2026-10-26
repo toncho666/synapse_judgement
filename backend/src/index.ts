@@ -33,6 +33,46 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// API keys status check
+app.get('/api/status/keys', (req, res) => {
+  const alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY;
+  const finnhubKey = process.env.FINNHUB_API_KEY;
+  
+  const alphaVantageConfigured = !!(
+    alphaVantageKey && 
+    alphaVantageKey !== 'demo' && 
+    alphaVantageKey !== 'your_alpha_vantage_api_key_here' &&
+    alphaVantageKey.length > 10
+  );
+  
+  const finnhubConfigured = !!(
+    finnhubKey && 
+    finnhubKey !== '' && 
+    finnhubKey !== 'your_finnhub_api_key_here' &&
+    finnhubKey.length > 10
+  );
+  
+  res.json({
+    success: true,
+    data: {
+      alphaVantage: {
+        configured: alphaVantageConfigured,
+        keyPreview: alphaVantageConfigured 
+          ? `${alphaVantageKey!.substring(0, 4)}...${alphaVantageKey!.substring(alphaVantageKey!.length - 4)}`
+          : null,
+        status: alphaVantageConfigured ? '✅ Ready' : '❌ Not configured'
+      },
+      finnhub: {
+        configured: finnhubConfigured,
+        keyPreview: finnhubConfigured 
+          ? `${finnhubKey!.substring(0, 4)}...${finnhubKey!.substring(finnhubKey!.length - 4)}`
+          : null,
+        status: finnhubConfigured ? '✅ Ready' : '❌ Not configured'
+      }
+    }
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentsRoutes);
@@ -53,6 +93,22 @@ app.listen(config.port, () => {
   logger.info(`📝 Environment: ${config.nodeEnv}`);
   logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
   logger.info(`📊 API available at http://localhost:${config.port}/api`);
+  
+  // Check API keys
+  const alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY;
+  const finnhubKey = process.env.FINNHUB_API_KEY;
+  
+  if (alphaVantageKey && alphaVantageKey !== 'demo' && alphaVantageKey !== 'your_alpha_vantage_api_key_here') {
+    logger.info(`✅ Alpha Vantage API key configured: ${alphaVantageKey.substring(0, 4)}...${alphaVantageKey.substring(alphaVantageKey.length - 4)}`);
+  } else {
+    logger.warn(`⚠️  Alpha Vantage API key NOT configured - using mock data`);
+  }
+  
+  if (finnhubKey && finnhubKey !== '' && finnhubKey !== 'your_finnhub_api_key_here') {
+    logger.info(`✅ Finnhub API key configured: ${finnhubKey.substring(0, 4)}...${finnhubKey.substring(finnhubKey.length - 4)}`);
+  } else {
+    logger.warn(`⚠️  Finnhub API key NOT configured - using mock data`);
+  }
   
   // Start background stock updates
   startBackgroundUpdates();

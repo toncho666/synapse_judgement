@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getStockData, refreshStockData, getCacheStatus } from '../services/stock.service';
+import { getStockData, refreshStockData, getStockCacheStatus, clearStockCache } from '../services/stock.service';
 
 const router = Router();
 
@@ -57,7 +57,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
  */
 router.get('/status', (req: Request, res: Response) => {
   try {
-    const status = getCacheStatus();
+    const status = getStockCacheStatus();
     
     res.json({
       success: true,
@@ -68,6 +68,29 @@ router.get('/status', (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get cache status'
+    });
+  }
+});
+
+/**
+ * POST /api/stocks/clear-cache
+ * Clear stock cache
+ */
+router.post('/clear-cache', (req: Request, res: Response) => {
+  try {
+    console.log('🗑️ POST /api/stocks/clear-cache - Clearing stock cache');
+    
+    clearStockCache();
+    
+    res.json({
+      success: true,
+      message: 'Stock cache cleared successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error clearing cache:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear cache'
     });
   }
 });
