@@ -1,9 +1,7 @@
-// Stock data service using Yahoo Finance API
-// Free, no API key required, no rate limits
+// Stock data service using Finnhub API
+// Free tier: 60 requests/minute
 
-import { YahooFinance } from 'yahoo-finance2';
-
-const yahooFinance = new YahooFinance();
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
 
 interface StockQuote {
   symbol: string;
@@ -21,54 +19,47 @@ interface StockData {
 // In-memory cache (no database)
 let stockCache: StockData | null = null;
 let lastFetchTime: number = 0;
-const CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour - Yahoo Finance has no limits
+const CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
 
-// List of stocks to track
+// List of stocks to track (Finnhub supports major stocks)
 const TRACKED_SYMBOLS = [
   'AAPL', 'NVDA', 'MSFT', 'TSLA', 'AMZN', 
-  'GOOGL', 'META', 'S&P 500', 'NASDAQ', 'BTC', 'ETH'
+  'GOOGL', 'META'
 ];
 
-// Crypto symbols mapping for Yahoo Finance
-const CRYPTO_SYMBOLS: Record<string, string> = {
-  'BTC': 'BTC-USD',
-  'ETH': 'ETH-USD'
-};
-
-// Index symbols mapping for Yahoo Finance
-const INDEX_SYMBOLS: Record<string, string> = {
-  'S&P 500': '^GSPC',
-  'NASDAQ': '^IXIC'
-};
-
 /**
- * Fetch stock quote from Yahoo Finance
+ * Fetch stock quote from Finnhub API
  */
 async function fetchStockQuote(symbol: string): Promise<StockQuote | null> {
   try {
-    // Map symbol to Yahoo Finance format
-    let yahooSymbol = symbol;
-    
-    if (CRYPTO_SYMBOLS[symbol]) {
-      yahooSymbol = CRYPTO_SYMBOLS[symbol];
-    } else if (INDEX_SYMBOLS[symbol]) {
-      yahooSymbol = INDEX_SYMBOLS[symbol];
+    if (!FINNHUB_API_KEY) {
+      console.warn(`⚠️  Finnhub API key not configured`);
+      return null;
     }
     
-    console.log(`📊 Fetching quote for ${symbol} (${yahooSymbol}) from Yahoo Finance...`);
+    console.log(`📊 Fetching quote for ${symbol} from Finnhub...`);
     
-    const quote = await yahooFinance.quote(yahooSymbol);
+    const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
+    const response = await fetch(url);
     
-    if (!quote || !quote.regularMarketPrice) {
+    if (!response.ok) {
+      console.warn(`⚠️  Finnhub API error for ${symbol}: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    // Finnhub returns: { c: current, d: change, dp: percent change, h: high, l: low, o: open, pc: previous close }
+    if (!data || data.c === 0 || !data.c) {
       console.warn(`⚠️  No quote data for ${symbol}`);
       return null;
     }
     
     const result: StockQuote = {
       symbol: symbol,
-      price: quote.regularMarketPrice,
-      change: quote.regularMarketChange || 0,
-      changePercent: quote.regularMarketChangePercent || 0,
+      price: data.c, // current price
+      change: data.d || 0, // change
+      changePercent: data.dp || 0, // percent change
       timestamp: new Date().toISOString()
     };
     
@@ -85,7 +76,7 @@ async function fetchStockQuote(symbol: string): Promise<StockQuote | null> {
  * Fetch all tracked stocks
  */
 export async function fetchAllStocks(): Promise<StockData> {
-  console.log('📊 Fetching stock data from Yahoo Finance...');
+  console.log('📊 Fetching stock data from Finnhub...');
   
   const quotes: StockQuote[] = [];
   const failedSymbols: string[] = [];
@@ -105,8 +96,8 @@ export async function fetchAllStocks(): Promise<StockData> {
       console.error(`❌ Error fetching ${symbol}:`, error);
     }
     
-    // Small delay to be polite to Yahoo Finance API
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Small delay to respect rate limits (60 requests/minute)
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   const stockData: StockData = {
