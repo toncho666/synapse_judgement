@@ -233,11 +233,44 @@ export async function getStockData(): Promise<StockData> {
   
   // Return cached data if fresh
   if (stockCache && (now - lastFetchTime) < CACHE_DURATION) {
+    console.log(`📦 Returning CACHED stock data (age: ${Math.floor((now - lastFetchTime) / 1000)}s)`);
     return stockCache;
   }
 
+  console.log(`🔄 Cache expired or empty, fetching NEW stock data...`);
   // Fetch new data
   return await fetchAllStocks();
+}
+
+/**
+ * Clear stock cache
+ */
+export function clearStockCache() {
+  stockCache = null;
+  lastFetchTime = 0;
+  console.log('🗑️ Stock cache cleared');
+}
+
+/**
+ * Get cache status
+ */
+export function getStockCacheStatus() {
+  if (!stockCache) {
+    return {
+      hasCache: false,
+      lastUpdated: null,
+      quotesCount: 0,
+      cacheAge: null
+    };
+  }
+
+  const now = Date.now();
+  return {
+    hasCache: true,
+    lastUpdated: stockCache.lastUpdated,
+    quotesCount: stockCache.quotes.length,
+    cacheAge: Math.floor((now - lastFetchTime) / 1000)
+  };
 }
 
 /**

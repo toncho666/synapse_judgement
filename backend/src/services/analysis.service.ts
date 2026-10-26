@@ -100,28 +100,51 @@ export class AnalysisService {
       // Get real stock data
       let basePrice = 100; // Default fallback
       let priceChange = 0;
+      let dataSource = 'unknown';
       
       try {
+        logger.info('AnalysisService: Fetching stock data', { ticker: input.ticker });
         const stockData = await getStockData();
+        
+        logger.debug('AnalysisService: Stock data received', { 
+          quotesCount: stockData.quotes.length,
+          lastUpdated: stockData.lastUpdated
+        });
+        
         const stockQuote = stockData.quotes.find(q => q.symbol === input.ticker.toUpperCase());
         
         if (stockQuote) {
           basePrice = stockQuote.price;
           priceChange = stockQuote.changePercent;
-          logger.info('AnalysisService: Using real stock price', { 
+          
+          // Determine if data is real or mock
+          // Mock data from stock.service has specific patterns
+          const isLikelyMock = (
+            stockQuote.timestamp === new Date().toISOString() || // Mock data has current timestamp
+            (basePrice >= 100 && basePrice <= 500 && Math.abs(priceChange) < 2) // Mock data range
+          );
+          
+          dataSource = isLikelyMock ? 'MOCK' : 'REAL';
+          
+          logger.info('AnalysisService: Stock price obtained', { 
             ticker: input.ticker, 
             price: basePrice, 
-            change: priceChange 
+            change: priceChange,
+            source: dataSource,
+            timestamp: stockQuote.timestamp
           });
         } else {
+          dataSource = 'FALLBACK';
           logger.warn('AnalysisService: Stock not found in data, using fallback price', { 
-            ticker: input.ticker 
+            ticker: input.ticker,
+            availableSymbols: stockData.quotes.map(q => q.symbol)
           });
         }
       } catch (error) {
+        dataSource = 'ERROR';
         logger.warn('AnalysisService: Failed to fetch stock data, using fallback price', { 
           ticker: input.ticker, 
-          error 
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
 
