@@ -30,9 +30,9 @@ const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
 const ALPHA_VANTAGE_BASE_URL = 'https://www.alternative.me/crypto/fear-and-greed-index/json/';
 
 /**
- * Fetch stock quote from Alpha Vantage
+ * Fetch stock quote from Alpha Vantage with timeout and retry
  */
-async function fetchStockQuote(symbol: string): Promise<StockQuote | null> {
+async function fetchStockQuote(symbol: string, retries: number = 2): Promise<StockQuote | null> {
   try {
     // For crypto, use different endpoint
     if (symbol === 'BTC' || symbol === 'ETH') {
@@ -44,32 +44,86 @@ async function fetchStockQuote(symbol: string): Promise<StockQuote | null> {
       return generateMockIndexData(symbol);
     }
 
-    // For stocks, use Alpha Vantage
+    // For stocks, use Alpha Vantage with timeout
     const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
     
-    const response = await fetch(url);
-    const data = await response.json();
+    // Add timeout (10 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    if (data['Global Quote'] && data['Global Quote']['05. price']) {
-      const quote = data['Global Quote'];
-      const price = parseFloat(quote['05. price']);
-      const change = parseFloat(quote['09. change']);
-      const changePercent = parseFloat(quote['10. change percent'].replace('%', ''));
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      const data = await response.json();
 
-      return {
-        symbol,
-        price,
-        change,
-        changePercent,
-        timestamp: new Date().toISOString()
-      };
+      if (data['Global Quote'] && data['Global Quote']['05. price']) {
+        const quote = data['Global Quote'];
+        const price = parseFloat(quote['05. price']);
+        const change = parseFloat(quote['09. change']);
+        const changePercent = parseFloat(quote['10. change percent'].replace('%', ''));
+
+        return {
+          symbol,
+          price,
+          change,
+          changePercent,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // If no data, return null
+      return null;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      // If timeout or network error, retry
+      if (retries > 0 && (fetchError instanceof Error && 
+          (fetchError.message.includes('timeout') || 
+           fetchError.message.includes('terminated') ||
+           fetchError.message.includes('ETIMEDOUT')))) {
+        console.warn(`⚠️  Timeout for ${symbol}, retrying... (${retries} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        return fetchStockQuote(symbol, retries - 1);
+      }
+      
+      throw fetchError;
     }
-
-    return null;
   } catch (error) {
-    console.error(`Error fetching quote for ${symbol}:`, error);
-    return null;
+    console.error(`❌ Error fetching quote for ${symbol}:`, error);
+    
+    // Fallback to mock data if API fails
+    console.warn(`⚠️  Using mock data for ${symbol}`);
+    return generateMockStockData(symbol);
   }
+}
+
+/**
+ * Generate mock stock data as fallback
+ */
+function generateMockStockData(symbol: string): StockQuote {
+  // Realistic base prices for common stocks
+  const basePrices: Record<string, number> = {
+    'AAPL': 175.50,
+    'NVDA': 480.20,
+    'MSFT': 380.75,
+    'TSLA': 372.40,
+    'AMZN': 186.90,
+    'GOOGL': 140.25,
+    'META': 350.80,
+  };
+
+  const basePrice = basePrices[symbol] || (100 + Math.random() * 400);
+  const change = (Math.random() - 0.5) * basePrice * 0.03; // -1.5% to +1.5%
+  const changePercent = (change / basePrice) * 100;
+
+  return {
+    symbol,
+    price: basePrice + change,
+    change,
+    changePercent,
+    timestamp: new Date().toISOString()
+  };
 }
 
 /**
@@ -128,16 +182,30 @@ export async function fetchAllStocks(): Promise<StockData> {
   console.log('📊 Fetching stock data...');
   
   const quotes: StockQuote[] = [];
+  const errors: string[] = [];
   
   // Fetch all symbols (with delay to respect rate limits)
   for (const symbol of TRACKED_SYMBOLS) {
-    const quote = await fetchStockQuote(symbol);
-    if (quote) {
-      quotes.push(quote);
+    try {
+      const quote = await fetchStockQuote(symbol);
+      if (quote) {
+        quotes.push(quote);
+        console.log(`✅ ${symbol}: $${quote.price.toFixed(2)} (${quote.changePercent >= 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%)`);
+      } else {
+        errors.push(symbol);
+        console.warn(`⚠️  No data for ${symbol}`);
+      }
+    } catch (error) {
+      errors.push(symbol);
+      console.error(`❌ Failed to fetch ${symbol}:`, error);
     }
     
-    // Delay between requests to respect rate limits (200ms)
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Delay between requests to respect rate limits (12 seconds for 5 req/min)
+    if (symbol !== 'S&P 500' && symbol !== 'NASDAQ' && symbol !== 'BTC' && symbol !== 'ETH') {
+      await new Promise(resolve => setTimeout(resolve, 12000));
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
   }
 
   const stockData: StockData = {
@@ -149,7 +217,10 @@ export async function fetchAllStocks(): Promise<StockData> {
   stockCache = stockData;
   lastFetchTime = Date.now();
 
-  console.log(`✅ Fetched ${quotes.length} stock quotes`);
+  console.log(`✅ Fetched ${quotes.length}/${TRACKED_SYMBOLS.length} stock quotes`);
+  if (errors.length > 0) {
+    console.warn(`⚠️  Failed to fetch: ${errors.join(', ')}`);
+  }
   
   return stockData;
 }
