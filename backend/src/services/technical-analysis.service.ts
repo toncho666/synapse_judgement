@@ -626,13 +626,72 @@ export async function performTechnicalAnalysis(ticker: string): Promise<Technica
 }
 
 /**
- * Fetch historical data (mock implementation)
- * In production, use Alpha Vantage TIME_SERIES_DAILY endpoint
+ * Fetch historical data from Alpha Vantage API
+ * Falls back to mock data if API fails
  */
 async function fetchHistoricalData(ticker: string) {
-  // Generate mock historical data for demonstration
-  const days = 250; // ~1 year of trading days
-  const basePrice = 100 + Math.random() * 400;
+  const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
+  
+  try {
+    // Try to fetch real data from Alpha Vantage
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data['Time Series (Daily)']) {
+      const timeSeries = data['Time Series (Daily)'];
+      const dates = Object.keys(timeSeries).sort().slice(-250); // Last 250 days
+      
+      const opens: number[] = [];
+      const highs: number[] = [];
+      const lows: number[] = [];
+      const closes: number[] = [];
+      const volumes: number[] = [];
+      
+      dates.forEach(date => {
+        const dayData = timeSeries[date];
+        opens.push(parseFloat(dayData['1. open']));
+        highs.push(parseFloat(dayData['2. high']));
+        lows.push(parseFloat(dayData['3. low']));
+        closes.push(parseFloat(dayData['4. close']));
+        volumes.push(parseInt(dayData['5. volume']));
+      });
+      
+      console.log(`✅ Fetched real historical data for ${ticker}: ${dates.length} days`);
+      return { opens, highs, lows, closes, volumes };
+    } else {
+      console.warn(`⚠️  Alpha Vantage API returned no data for ${ticker}, using mock data`);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to fetch historical data for ${ticker}:`, error);
+  }
+  
+  // Fallback to mock data
+  return generateMockData(ticker);
+}
+
+/**
+ * Generate mock historical data (fallback when API fails)
+ */
+function generateMockData(ticker: string) {
+  const days = 250;
+  
+  // Use realistic base prices for common tickers
+  const tickerPrices: Record<string, number> = {
+    'AAPL': 175,
+    'MSFT': 380,
+    'GOOGL': 140,
+    'AMZN': 155,
+    'TSLA': 250,
+    'NVDA': 480,
+    'META': 350,
+    'NFLX': 480,
+    'AMD': 120,
+    'INTC': 45,
+  };
+  
+  const basePrice = tickerPrices[ticker] || (100 + Math.random() * 400);
   
   const opens: number[] = [];
   const highs: number[] = [];
@@ -643,7 +702,7 @@ async function fetchHistoricalData(ticker: string) {
   let price = basePrice;
   
   for (let i = 0; i < days; i++) {
-    const change = (Math.random() - 0.48) * price * 0.03; // Slight upward bias
+    const change = (Math.random() - 0.48) * price * 0.03;
     const open = price;
     const close = price + change;
     const high = Math.max(open, close) + Math.random() * price * 0.01;
@@ -659,6 +718,7 @@ async function fetchHistoricalData(ticker: string) {
     price = close;
   }
   
+  console.log(`⚠️  Using mock historical data for ${ticker} (base price: $${basePrice.toFixed(2)})`);
   return { opens, highs, lows, closes, volumes };
 }
 
