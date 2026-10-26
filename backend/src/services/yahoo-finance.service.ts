@@ -1,7 +1,9 @@
 // Yahoo Finance Service
 // Free, no API key required, no rate limits
 
-import yahooFinance from 'yahoo-finance2';
+import { YahooFinance } from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance();
 
 export interface YahooQuote {
   symbol: string;
