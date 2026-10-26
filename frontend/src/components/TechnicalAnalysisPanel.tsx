@@ -38,6 +38,29 @@ const TechnicalAnalysisPanel: React.FC<TechnicalAnalysisPanelProps> = ({ ticker 
     return null;
   }
 
+  // Check if we got "no data" response
+  if (analysis.confidence === 0 && analysis.currentPrice === 0) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+        <h3 className="text-yellow-800 font-semibold mb-2">No Data Available</h3>
+        <p className="text-yellow-700 mb-4">
+          Alpha Vantage API did not return historical data for {ticker}.
+        </p>
+        <ul className="text-yellow-700 text-sm space-y-1 mb-4">
+          <li>• API rate limit may have been exceeded (25 requests/day)</li>
+          <li>• API key may not be configured correctly</li>
+          <li>• Ticker may not be supported</li>
+        </ul>
+        <button
+          onClick={refetch}
+          className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   const getSignalColor = (type: 'bull' | 'bear' | 'flat') => {
     switch (type) {
       case 'bull': return 'text-green-600 bg-green-50 border-green-200';

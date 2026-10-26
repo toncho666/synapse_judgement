@@ -166,6 +166,27 @@ export class AnalysisService {
             logger.info(`Fetching REAL technical analysis for ${input.ticker}`);
             const techAnalysis = await performTechnicalAnalysis(input.ticker);
             
+            // Check if we got real data or "no data" response
+            if (techAnalysis.confidence === 0 && techAnalysis.currentPrice === 0) {
+              logger.warn(`⚠️  No data available for technical analysis of ${input.ticker}`);
+              return {
+                agentId,
+                signal: 'FLAT',
+                score: 0,
+                confidence: 0,
+                lines: [
+                  'No data available',
+                  'Alpha Vantage API did not return historical data',
+                  'Please try again later or check API limits',
+                ],
+                metrics: [
+                  { label: 'RSI', value: 'N/A' },
+                  { label: 'MACD', value: 'N/A' },
+                  { label: 'SMA 200', value: 'N/A' },
+                ],
+              };
+            }
+            
             return {
               agentId,
               signal: techAnalysis.recommendation === 'BUY' ? 'BULL' : 
@@ -185,7 +206,22 @@ export class AnalysisService {
             };
           } catch (error) {
             logger.error(`Failed to fetch technical analysis for ${input.ticker}:`, error);
-            // Fallback to mock data
+            return {
+              agentId,
+              signal: 'FLAT',
+              score: 0,
+              confidence: 0,
+              lines: [
+                'Error fetching technical analysis',
+                'API request failed',
+                'Please try again later',
+              ],
+              metrics: [
+                { label: 'RSI', value: 'N/A' },
+                { label: 'MACD', value: 'N/A' },
+                { label: 'SMA 200', value: 'N/A' },
+              ],
+            };
           }
         }
         
