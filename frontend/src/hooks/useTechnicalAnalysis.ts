@@ -58,15 +58,25 @@ export function useTechnicalAnalysis(ticker: string): UseTechnicalAnalysisResult
       return;
     }
 
+    // Валидация тикера
+    const tickerRegex = /^[A-Z]{1,5}(\.[A-Z]{1,2})?$/;
+    if (!tickerRegex.test(ticker)) {
+      setError('Invalid ticker format. Use letters only (e.g., AAPL, MSFT)');
+      setAnalysis(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `http://localhost:3001/api/technical-analysis/${ticker}`
-      );
+      // Используем относительный путь через Vite proxy
+      const response = await fetch(`/api/technical-analysis/${ticker}`);
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Ticker ${ticker} not found`);
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
