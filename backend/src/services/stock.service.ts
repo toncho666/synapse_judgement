@@ -1,5 +1,5 @@
 // Stock data service using Alpha Vantage API
-// Free tier: 5 requests/minute, 500 requests/day
+// Free tier: 25 requests/day, 5 requests/minute
 
 interface StockQuote {
   symbol: string;
@@ -17,12 +17,11 @@ interface StockData {
 // In-memory cache (no database)
 let stockCache: StockData | null = null;
 let lastFetchTime: number = 0;
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours - Alpha Vantage free tier: 25 requests/day
 
-// List of stocks to track
+// List of stocks to track (reduced to fit within 25 requests/day limit)
 const TRACKED_SYMBOLS = [
-  'AAPL', 'NVDA', 'MSFT', 'TSLA', 'AMZN', 
-  'GOOGL', 'META', 'S&P 500', 'NASDAQ', 'BTC', 'ETH'
+  'AAPL', 'NVDA', 'MSFT', 'TSLA', 'AMZN'
 ];
 
 // Alpha Vantage API configuration
@@ -102,15 +101,15 @@ async function fetchStockQuote(symbol: string, retries: number = 2): Promise<Sto
  * Generate mock stock data as fallback
  */
 function generateMockStockData(symbol: string): StockQuote {
-  // Realistic base prices for common stocks
+  // Realistic base prices for common stocks (updated for late 2024)
   const basePrices: Record<string, number> = {
-    'AAPL': 175.50,
-    'NVDA': 480.20,
-    'MSFT': 380.75,
-    'TSLA': 372.40,
-    'AMZN': 186.90,
-    'GOOGL': 140.25,
-    'META': 350.80,
+    'AAPL': 225.50,
+    'NVDA': 140.20,
+    'MSFT': 420.75,
+    'TSLA': 245.40,
+    'AMZN': 185.90,
+    'GOOGL': 175.03,
+    'META': 575.44,
   };
 
   const basePrice = basePrices[symbol] || (100 + Math.random() * 400);
@@ -162,7 +161,8 @@ async function fetchCryptoQuote(symbol: string): Promise<StockQuote | null> {
  * Generate mock data for indices (free tier limitation)
  */
 function generateMockIndexData(symbol: string): StockQuote {
-  const basePrice = symbol === 'S&P 500' ? 5472.10 : 17862.4;
+  // Updated base prices for indices (late 2024)
+  const basePrice = symbol === 'S&P 500' ? 5850.10 : 18450.24;
   const change = (Math.random() - 0.5) * 50;
   const changePercent = (change / basePrice) * 100;
 
