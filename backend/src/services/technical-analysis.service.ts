@@ -532,11 +532,14 @@ export async function performTechnicalAnalysis(ticker: string): Promise<Technica
   // Check cache
   const cached = analysisCache[ticker];
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    console.log(`✅ Returning cached analysis for ${ticker}`);
+    console.log(`✅ Returning CACHED analysis for ${ticker} (age: ${Math.floor((Date.now() - cached.timestamp) / 1000)}s)`);
+    console.log(`   Current price in cache: $${cached.data.currentPrice.toFixed(2)}`);
     return cached.data;
   }
   
-  // Get historical data (mock for now - in production, fetch from API)
+  console.log(`🔄 Cache expired or empty, fetching NEW data for ${ticker}...`);
+  
+  // Get historical data from Alpha Vantage API
   const historicalData = await fetchHistoricalData(ticker);
   
   if (!historicalData || historicalData.closes.length < 50) {
@@ -545,6 +548,11 @@ export async function performTechnicalAnalysis(ticker: string): Promise<Technica
   
   const { opens, highs, lows, closes, volumes } = historicalData;
   const currentPrice = closes[closes.length - 1];
+  
+  console.log(`📈 Historical data received for ${ticker}:`);
+  console.log(`   Days: ${closes.length}`);
+  console.log(`   Current price: $${currentPrice.toFixed(2)}`);
+  console.log(`   Price range: $${Math.min(...lows).toFixed(2)} - $${Math.max(...highs).toFixed(2)}`);
   
   // Calculate indicators
   const indicators: TechnicalIndicators = {
@@ -641,66 +649,82 @@ async function fetchHistoricalData(ticker: string) {
   }
   
   try {
-    // Alpha Vantage TIME_SERIES_DAILY API
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${ALPHA_VANTAGE_API_KEY}`;
+    // Alpha Vantage TIME_SERIES_DAILY API - используем compact для последних 100 дней
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
     
-    const response = await fetch(url);
+    console.log(`🌐 Requesting data from Alpha Vantage for ${ticker}...`);
     
-    if (!response.ok) {
-      console.warn(`⚠️  Alpha Vantage API error for ${ticker}: ${response.status}`);
-      return generateMockData(ticker);
-    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
-    const data = await response.json();
-    
-    // Check for API error messages
-    if (data['Error Message']) {
-      console.error(`❌ Alpha Vantage API error for ${ticker}:`, data['Error Message']);
-      return generateMockData(ticker);
-    }
-    
-    if (data['Note']) {
-      console.warn(`⚠️  Alpha Vantage API rate limit for ${ticker}:`, data['Note']);
-      return generateMockData(ticker);
-    }
-    
-    if (data['Information']) {
-      console.warn(`⚠️  Alpha Vantage API info for ${ticker}:`, data['Information']);
-      return generateMockData(ticker);
-    }
-    
-    // Alpha Vantage returns: { "Time Series (Daily)": { "2024-01-01": { "1. open": "...", "2. high": "...", "3. low": "...", "4. close": "...", "5. volume": "..." } } }
-    if (data['Time Series (Daily)']) {
-      const timeSeries = data['Time Series (Daily)'];
-      const dates = Object.keys(timeSeries).sort().slice(-250); // Last 250 days
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
       
-      if (dates.length === 0) {
-        console.warn(`⚠️  No historical data available for ${ticker}, using mock data`);
+      if (!response.ok) {
+        console.warn(`⚠️  Alpha Vantage API error for ${ticker}: ${response.status}`);
         return generateMockData(ticker);
       }
       
-      const opens: number[] = [];
-      const highs: number[] = [];
-      const lows: number[] = [];
-      const closes: number[] = [];
-      const volumes: number[] = [];
+      const data = await response.json();
       
-      dates.forEach(date => {
-        const dayData = timeSeries[date];
-        opens.push(parseFloat(dayData['1. open']));
-        highs.push(parseFloat(dayData['2. high']));
-        lows.push(parseFloat(dayData['3. low']));
-        closes.push(parseFloat(dayData['4. close']));
-        volumes.push(parseInt(dayData['5. volume']));
-      });
+      // Check for API error messages
+      if (data['Error Message']) {
+        console.error(`❌ Alpha Vantage API error for ${ticker}:`, data['Error Message']);
+        return generateMockData(ticker);
+      }
       
-      const latestPrice = closes[closes.length - 1];
-      console.log(`✅ Fetched REAL historical data for ${ticker}: ${dates.length} days, latest price: $${latestPrice.toFixed(2)}`);
+      if (data['Note']) {
+        console.warn(`⚠️  Alpha Vantage API rate limit for ${ticker}:`, data['Note']);
+        return generateMockData(ticker);
+      }
       
-      return { opens, highs, lows, closes, volumes };
-    } else {
-      console.warn(`⚠️  Alpha Vantage API returned unexpected format for ${ticker}, using mock data`);
-      console.log('Response keys:', Object.keys(data));
+      if (data['Information']) {
+        console.warn(`⚠️  Alpha Vantage API info for ${ticker}:`, data['Information']);
+        return generateMockData(ticker);
+      }
+      
+      // Alpha Vantage returns: { "Time Series (Daily)": { "2024-01-01": { "1. open": "...", "2. high": "...", "3. low": "...", "4. close": "...", "5. volume": "..." } } }
+      if (data['Time Series (Daily)']) {
+        const timeSeries = data['Time Series (Daily)'];
+        const dates = Object.keys(timeSeries).sort().slice(-250); // Last 250 days
+        
+        if (dates.length === 0) {
+          console.warn(`⚠️  No historical data available for ${ticker}, using mock data`);
+          return generateMockData(ticker);
+        }
+        
+        const opens: number[] = [];
+        const highs: number[] = [];
+        const lows: number[] = [];
+        const closes: number[] = [];
+        const volumes: number[] = [];
+        
+        dates.forEach(date => {
+          const dayData = timeSeries[date];
+          opens.push(parseFloat(dayData['1. open']));
+          highs.push(parseFloat(dayData['2. high']));
+          lows.push(parseFloat(dayData['3. low']));
+          closes.push(parseFloat(dayData['4. close']));
+          volumes.push(parseInt(dayData['5. volume']));
+        });
+        
+        const latestPrice = closes[closes.length - 1];
+        console.log(`✅ Fetched REAL historical data for ${ticker}: ${dates.length} days, latest price: $${latestPrice.toFixed(2)}`);
+        
+        return { opens, highs, lows, closes, volumes };
+      } else {
+        console.warn(`⚠️  Alpha Vantage API returned unexpected format for ${ticker}, using mock data`);
+        console.log('Response keys:', Object.keys(data));
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error(`❌ Timeout fetching historical data for ${ticker} (10s)`);
+      } else {
+        console.error(`❌ Network error fetching historical data for ${ticker}:`, fetchError);
+      }
     }
   } catch (error) {
     console.error(`❌ Failed to fetch historical data for ${ticker}:`, error);
