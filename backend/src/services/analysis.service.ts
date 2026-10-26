@@ -1,6 +1,9 @@
 import prisma from '../utils/prisma.js';
 import logger from '../utils/logger.js';
 import { getStockData } from './stock.service.js';
+import { performTechnicalAnalysis } from './technical-analysis.service.js';
+import { performNewsAnalysis } from './news-analysis.service.js';
+import { performEarningsCallAnalysis } from './earnings-call.service.js';
 
 // Agent definitions (matching frontend)
 const AGENTS = [
@@ -155,8 +158,94 @@ export class AnalysisService {
       const confidence = Math.floor(50 + Math.abs(composite) * 40);
       const targetPrice = basePrice * (1 + composite * 0.3);
 
-      // Create agent verdicts based on real data
-      const agentVerdicts = input.agents.map(agentId => {
+      // Create agent verdicts - use real data for tech/news/earn, mock for fund/port
+      const agentVerdicts = await Promise.all(input.agents.map(async (agentId) => {
+        // For Technical, News, and Earnings agents - use real API data
+        if (agentId === 'tech') {
+          try {
+            logger.info(`Fetching REAL technical analysis for ${input.ticker}`);
+            const techAnalysis = await performTechnicalAnalysis(input.ticker);
+            
+            return {
+              agentId,
+              signal: techAnalysis.recommendation === 'BUY' ? 'BULL' : 
+                      techAnalysis.recommendation === 'SELL' ? 'BEAR' : 'FLAT',
+              score: techAnalysis.confidence / 100,
+              confidence: techAnalysis.confidence,
+              lines: [
+                `Price: $${techAnalysis.currentPrice.toFixed(2)}`,
+                `Recommendation: ${techAnalysis.recommendation} (${techAnalysis.confidence}% confidence)`,
+                `Support: $${techAnalysis.support?.toFixed(2) || 'N/A'}, Resistance: $${techAnalysis.resistance?.toFixed(2) || 'N/A'}`,
+              ],
+              metrics: [
+                { label: 'RSI', value: techAnalysis.indicators.rsi14?.toFixed(1) || 'N/A' },
+                { label: 'MACD', value: techAnalysis.indicators.macd?.histogram.toFixed(2) || 'N/A' },
+                { label: 'SMA 200', value: techAnalysis.indicators.sma200 ? `$${techAnalysis.indicators.sma200.toFixed(2)}` : 'N/A' },
+              ],
+            };
+          } catch (error) {
+            logger.error(`Failed to fetch technical analysis for ${input.ticker}:`, error);
+            // Fallback to mock data
+          }
+        }
+        
+        if (agentId === 'news') {
+          try {
+            logger.info(`Fetching REAL news analysis for ${input.ticker}`);
+            const newsAnalysis = await performNewsAnalysis(input.ticker);
+            
+            return {
+              agentId,
+              signal: newsAnalysis.signal === 'bull' ? 'BULL' : 
+                      newsAnalysis.signal === 'bear' ? 'BEAR' : 'FLAT',
+              score: newsAnalysis.strength / 100,
+              confidence: newsAnalysis.strength,
+              lines: [
+                `Sentiment: ${newsAnalysis.sentiment.label} (${newsAnalysis.sentiment.score.toFixed(2)})`,
+                `Trend: ${newsAnalysis.sentiment.trend}`,
+                `Total news: ${newsAnalysis.statistics.totalNews} (Positive: ${newsAnalysis.statistics.positive}, Negative: ${newsAnalysis.statistics.negative})`,
+              ],
+              metrics: [
+                { label: 'Sentiment', value: `${(newsAnalysis.sentiment.score * 100).toFixed(0)}%` },
+                { label: 'Positivity Ratio', value: newsAnalysis.statistics.positivityRatio.toFixed(2) },
+                { label: 'Confidence', value: `${newsAnalysis.sentiment.confidence}%` },
+              ],
+            };
+          } catch (error) {
+            logger.error(`Failed to fetch news analysis for ${input.ticker}:`, error);
+            // Fallback to mock data
+          }
+        }
+        
+        if (agentId === 'earn') {
+          try {
+            logger.info(`Fetching REAL earnings call analysis for ${input.ticker}`);
+            const earningsAnalysis = await performEarningsCallAnalysis(input.ticker);
+            
+            return {
+              agentId,
+              signal: earningsAnalysis.signal === 'bull' ? 'BULL' : 
+                      earningsAnalysis.signal === 'bear' ? 'BEAR' : 'FLAT',
+              score: earningsAnalysis.strength / 100,
+              confidence: earningsAnalysis.strength,
+              lines: [
+                `Tone: ${earningsAnalysis.tone.overallTone} (Confidence: ${earningsAnalysis.tone.confidenceScore}/100)`,
+                `Evasiveness: ${earningsAnalysis.tone.evasivenessIndex}/100`,
+                `Guidance: ${earningsAnalysis.guidance.beat ? 'Beat' : 'Missed'} consensus by ${earningsAnalysis.guidance.delta.toFixed(1)}%`,
+              ],
+              metrics: [
+                { label: 'Confidence', value: `${earningsAnalysis.tone.confidenceScore}/100` },
+                { label: 'Evasiveness', value: `${earningsAnalysis.tone.evasivenessIndex}/100` },
+                { label: 'Sentiment Shift', value: `${earningsAnalysis.tone.sentimentShift >= 0 ? '+' : ''}${earningsAnalysis.tone.sentimentShift}%` },
+              ],
+            };
+          } catch (error) {
+            logger.error(`Failed to fetch earnings analysis for ${input.ticker}:`, error);
+            // Fallback to mock data
+          }
+        }
+        
+        // For Fundamental and Portfolio agents - use mock data
         // Generate score based on price change with some randomness per agent
         const agentBias = (Math.random() - 0.5) * 0.3; // Random bias between -0.15 and 0.15
         const score = Math.max(-1, Math.min(1, composite + agentBias));
@@ -175,31 +264,60 @@ export class AnalysisService {
           lines,
           metrics,
         };
-      });
+      }));
 
-      // Calculate consensus
+      // Calculate consensus from agent verdicts
       const consensusBull = agentVerdicts.filter(v => v.signal === 'BULL').length;
       const consensusFlat = agentVerdicts.filter(v => v.signal === 'FLAT').length;
       const consensusBear = agentVerdicts.filter(v => v.signal === 'BEAR').length;
+
+      // Calculate weighted composite score based on agent confidence
+      const totalConfidence = agentVerdicts.reduce((sum, v) => sum + v.confidence, 0);
+      const weightedComposite = agentVerdicts.reduce((sum, v) => {
+        const weight = v.confidence / totalConfidence;
+        return sum + (v.score * weight);
+      }, 0);
+
+      // Determine final verdict based on weighted composite
+      const finalVerdict = weightedComposite >= 0.28 ? 'BUY' : 
+                          weightedComposite <= -0.28 ? 'SELL' : 'HOLD';
+      const finalVerdictWord = finalVerdict === 'BUY' ? 'Buy' : 
+                              finalVerdict === 'SELL' ? 'Sell' : 'Hold';
+      const finalConfidence = Math.floor(50 + Math.abs(weightedComposite) * 40);
+      const finalTargetPrice = basePrice * (1 + weightedComposite * 0.3);
+
+      // Determine data sources for rationale
+      const realDataAgents = agentVerdicts.filter(v => 
+        v.agentId === 'tech' || v.agentId === 'news' || v.agentId === 'earn'
+      );
+      const mockDataAgents = agentVerdicts.filter(v => 
+        v.agentId === 'fund' || v.agentId === 'port'
+      );
 
       // Update session
       await prisma.session.update({
         where: { id: sessionId },
         data: {
           status: 'COMPLETED',
-          verdict,
-          verdictWord,
-          confidence,
-          targetPrice,
+          verdict: finalVerdict,
+          verdictWord: finalVerdictWord,
+          confidence: finalConfidence,
+          targetPrice: finalTargetPrice,
           basePrice,
-          composite,
+          composite: weightedComposite,
           consensusBull,
           consensusFlat,
           consensusBear,
           rationale: [
             `${Math.max(consensusBull, consensusFlat, consensusBear)} of ${input.agents.length} agents on the same side.`,
-            `Composite signal ${(composite * 100).toFixed(1)} pts out of 100.`,
-            `Confidence level: ${confidence}%.`,
+            `Weighted composite signal: ${(weightedComposite * 100).toFixed(1)} pts out of 100.`,
+            `Final confidence level: ${finalConfidence}%.`,
+            realDataAgents.length > 0 ? 
+              `Real data from: ${realDataAgents.map(v => v.agentId).join(', ')}` : 
+              'No real data agents selected.',
+            mockDataAgents.length > 0 ? 
+              `Mock data for: ${mockDataAgents.map(v => v.agentId).join(', ')}` : 
+              'All agents using real data.',
           ],
           completedAt: new Date(),
           agentVerdicts: {
@@ -208,7 +326,13 @@ export class AnalysisService {
         },
       });
 
-      logger.info('AnalysisService: Analysis completed', { sessionId, verdict, confidence });
+      logger.info('AnalysisService: Analysis completed', { 
+        sessionId, 
+        verdict: finalVerdict, 
+        confidence: finalConfidence,
+        realDataAgents: realDataAgents.length,
+        mockDataAgents: mockDataAgents.length
+      });
     } catch (error) {
       logger.error('AnalysisService: Analysis failed', { sessionId, error });
       await prisma.session.update({
