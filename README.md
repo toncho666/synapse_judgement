@@ -13,6 +13,8 @@ synapse-judgement/
 │   │   ├── lib/           # Утилиты
 │   │   └── data/          # Мок-данные
 │   ├── package.json
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
 │   └── vite.config.js
 │
 ├── backend/               # Node.js + Express + Prisma (порт 3001)
@@ -212,6 +214,14 @@ npm run db:push
 cd frontend
 rm -rf node_modules/.vite
 npm run dev
+```
+
+### Ошибки Tailwind CSS
+Если видите ошибки связанные с Tailwind:
+```bash
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
 ```
 
 ## 📄 Лицензия
