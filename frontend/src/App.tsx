@@ -490,7 +490,42 @@ function AuthPage({ onSuccess, onBack }: { onSuccess: () => void; onBack: () => 
   const [name, setName] = useState("");
   const [password, setPassword] = useState("demo123");
   const [loading, setLoading] = useState(false);
-  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setLoading(true); setTimeout(() => { onSuccess(); setLoading(false); }, 800); };
+  const [error, setError] = useState("");
+  
+  const handleSubmit = async (e: React.FormEvent) => { 
+    e.preventDefault(); 
+    setLoading(true); 
+    setError("");
+    
+    try {
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const payload = mode === "login" 
+        ? { email, password }
+        : { email, name, password };
+      
+      const response = await fetch(`http://localhost:3001${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Authentication failed");
+      }
+      
+      // Сохраняем токен в localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="relative min-h-screen overflow-hidden bg-white">
       <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true"><div className="anim-drift1 absolute -top-32 right-[-10%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle,rgba(0,122,255,0.10),transparent_65%)]" /><div className="anim-drift2 absolute top-[38%] left-[-12%] h-[620px] w-[620px] rounded-full bg-[radial-gradient(circle,rgba(88,86,214,0.10),transparent_65%)]" /></div>
@@ -503,6 +538,7 @@ function AuthPage({ onSuccess, onBack }: { onSuccess: () => void; onBack: () => 
             {mode === "register" && (<div><label className="mb-2 block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Full name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="w-full rounded-[12px] border-2 border-line bg-white px-4 py-3.5 text-[15px] font-semibold text-ink transition-colors duration-300 focus:border-accent" /></div>)}
             <div><label className="mb-2 block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required className="w-full rounded-[12px] border-2 border-line bg-white px-4 py-3.5 text-[15px] font-semibold text-ink transition-colors duration-300 focus:border-accent" /></div>
             <div><label className="mb-2 block font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="w-full rounded-[12px] border-2 border-line bg-white px-4 py-3.5 text-[15px] font-semibold text-ink transition-colors duration-300 focus:border-accent" /></div>
+            {error && (<div className="rounded-[12px] border-2 border-flame/30 bg-[#fff1f0] px-4 py-3 text-[13px] font-semibold text-[#b3271e]">{error}</div>)}
             <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-accent to-violet px-8 py-4 text-[15px] font-bold text-white shadow-[0_12px_32px_rgba(0,122,255,0.35)] transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60">{loading ? "Processing…" : (mode === "login" ? "Sign in" : "Create account")}</button>
           </form>
           {mode === "login" && (<div className="mt-6 rounded-[14px] border border-dashed border-line bg-card/60 px-5 py-4"><p className="flex items-center gap-2 text-[13px] font-bold text-ink"><Icon name="spark" size={15} className="text-amber" />Demo credentials pre-filled</p><p className="mt-1.5 text-[12.5px] leading-relaxed text-sub">Just click "Sign in" to explore the dashboard.</p></div>)}
