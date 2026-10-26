@@ -1,249 +1,116 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@layer base {
-  :root {
-    --color-ink: #1d1d1f;
-    --color-sub: #6e6e73;
-    --color-faint: #a1a1a6;
-    --color-line: #e8e8ed;
-    --color-paper: #f5f5f7;
-    --color-card: #fbfbfd;
-    --color-accent: #007aff;
-    --color-violet: #5856d6;
-    --color-mint: #34c759;
-    --color-flame: #ff3b30;
-    --color-amber: #ff9500;
-  }
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@400;500;600;700&display=swap');
 
-  * {
-    border-color: var(--color-line);
-  }
-
-  body {
-    background-color: #ffffff;
-    color: var(--color-ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 96px;
 }
 
-@layer utilities {
-  .text-ink {
-    color: var(--color-ink);
-  }
-  
-  .text-sub {
-    color: var(--color-sub);
-  }
-  
-  .text-faint {
-    color: var(--color-faint);
-  }
-  
-  .text-accent {
-    color: var(--color-accent);
-  }
-  
-  .text-violet {
-    color: var(--color-violet);
-  }
-  
-  .text-mint {
-    color: var(--color-mint);
-  }
-  
-  .text-flame {
-    color: var(--color-flame);
-  }
-  
-  .text-amber {
-    color: var(--color-amber);
-  }
-  
-  .bg-ink {
-    background-color: var(--color-ink);
-  }
-  
-  .bg-paper {
-    background-color: var(--color-paper);
-  }
-  
-  .bg-card {
-    background-color: var(--color-card);
-  }
-  
-  .bg-accent {
-    background-color: var(--color-accent);
-  }
-  
-  .bg-violet {
-    background-color: var(--color-violet);
-  }
-  
-  .bg-mint {
-    background-color: var(--color-mint);
-  }
-  
-  .bg-flame {
-    background-color: var(--color-flame);
-  }
-  
-  .bg-amber {
-    background-color: var(--color-amber);
-  }
-  
-  .border-line {
-    border-color: var(--color-line);
-  }
-  
-  .shadow-soft {
-    box-shadow: 0 8px 40px rgba(29, 29, 31, 0.07);
-  }
-  
-  .shadow-lift {
-    box-shadow: 0 24px 64px rgba(29, 29, 31, 0.14);
-  }
-  
-  .shadow-bar {
-    box-shadow: 0 18px 50px rgba(29, 29, 31, 0.18);
-  }
+body {
+  @apply bg-white text-ink font-sans antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  @apply bg-accent/20;
+}
+
+/* Scroll reveal */
+.reveal {
+  @apply opacity-0 translate-y-[26px];
+}
+
+.reveal.is-in {
+  @apply opacity-100 translate-y-0;
+  transition: opacity 0.9s cubic-bezier(0.22, 0.61, 0.2, 1),
+              transform 0.9s cubic-bezier(0.22, 0.61, 0.2, 1);
+}
+
+/* Hero line mask */
+.mask-line {
+  @apply block overflow-hidden;
+}
+
+.mask-line > span {
+  @apply block translate-y-[112%];
+  transition: transform 1s cubic-bezier(0.22, 0.61, 0.2, 1);
+}
+
+.is-loaded .mask-line > span {
+  @apply translate-y-0;
 }
 
 /* Animations */
 @keyframes dashFlow {
-  to {
-    stroke-dashoffset: -48;
-  }
+  to { stroke-dashoffset: -48; }
 }
 
 @keyframes bobFloat {
-  from {
-    transform: translate(-50%, -50%) translateY(-4px);
-  }
-  to {
-    transform: translate(-50%, -50%) translateY(4px);
-  }
+  from { transform: translate(-50%, -50%) translateY(-4px); }
+  to { transform: translate(-50%, -50%) translateY(4px); }
 }
 
 @keyframes spinSlow {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes marqueeX {
-  to {
-    transform: translateX(-50%);
-  }
+  to { transform: translateX(-50%); }
 }
 
 @keyframes drift1 {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(60px, 40px) scale(1.08);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, 40px) scale(1.08); }
+  100% { transform: translate(0, 0) scale(1); }
 }
 
 @keyframes drift2 {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(-70px, -30px) scale(1.1);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-70px, -30px) scale(1.1); }
+  100% { transform: translate(0, 0) scale(1); }
 }
 
 @keyframes pulseHalo {
-  0% {
-    box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.45);
-  }
-  70% {
-    box-shadow: 0 0 0 14px rgba(0, 122, 255, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(0, 122, 255, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.45); }
+  70% { box-shadow: 0 0 0 14px rgba(0, 122, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0); }
 }
 
 @keyframes pulseHaloWhite {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 16px rgba(255, 255, 255, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
+  70% { box-shadow: 0 0 0 16px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 
 @keyframes shimmerX {
-  from {
-    background-position: -200% 0;
-  }
-  to {
-    background-position: 200% 0;
-  }
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
 }
 
 @keyframes blinkDots {
-  0%, 80%, 100% {
-    opacity: 0.2;
-  }
-  40% {
-    opacity: 1;
-  }
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
 }
 
 @keyframes verdictIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.86);
-    filter: blur(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-    filter: blur(0);
-  }
+  0% { opacity: 0; transform: scale(0.86); filter: blur(10px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
 }
 
 @keyframes shakeX {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-7px);
-  }
-  40% {
-    transform: translateX(6px);
-  }
-  60% {
-    transform: translateX(-4px);
-  }
-  80% {
-    transform: translateX(3px);
-  }
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
 }
 
 @keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .anim-dash {
@@ -257,6 +124,10 @@
 
 .anim-marquee {
   animation: marqueeX 46s linear infinite;
+}
+
+.anim-marquee:hover {
+  animation-play-state: paused;
 }
 
 .anim-drift1 {
@@ -288,12 +159,7 @@
 }
 
 .shimmer {
-  background: linear-gradient(
-    100deg,
-    #f0f0f3 40%,
-    #fafafc 50%,
-    #f0f0f3 60%
-  );
+  background: linear-gradient(100deg, #f0f0f3 40%, #fafafc 50%, #f0f0f3 60%);
   background-size: 200% 100%;
   animation: shimmerX 1.6s linear infinite;
 }
@@ -341,32 +207,6 @@ button {
   cursor: pointer;
 }
 
-.reveal {
-  opacity: 0;
-  transform: translateY(26px);
-}
-
-.reveal.is-in {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.9s cubic-bezier(0.22, 0.61, 0.2, 1), transform 0.9s cubic-bezier(0.22, 0.61, 0.2, 1);
-}
-
-.mask-line {
-  display: block;
-  overflow: hidden;
-}
-
-.mask-line > span {
-  display: block;
-  transform: translateY(112%);
-  transition: transform 1s cubic-bezier(0.22, 0.61, 0.2, 1);
-}
-
-.is-loaded .mask-line > span {
-  transform: translateY(0);
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -374,13 +214,12 @@ button {
   
   .reveal,
   .reveal.is-in {
-    opacity: 1;
-    transform: none;
+    @apply opacity-100 translate-y-0;
     transition: none;
   }
   
   .mask-line > span {
-    transform: none;
+    @apply translate-y-0;
     transition: none;
   }
   
