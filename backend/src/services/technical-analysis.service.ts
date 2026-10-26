@@ -2,7 +2,9 @@
 // Calculates technical indicators and generates trading signals
 
 import { getStockData } from './stock.service.js';
-import { getHistoricalDataForDays } from './yahoo-finance.service.js';
+
+// Finnhub API configuration
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
 
 // ============ TYPES ============
 
@@ -627,31 +629,50 @@ export async function performTechnicalAnalysis(ticker: string): Promise<Technica
 }
 
 /**
- * Fetch historical data from Yahoo Finance API
+ * Fetch historical data from Finnhub API
  * Falls back to mock data if API fails
  */
 async function fetchHistoricalData(ticker: string) {
-  console.log(`🌐 Fetching historical data for ${ticker} from Yahoo Finance...`);
+  console.log(`🌐 Fetching historical data for ${ticker} from Finnhub...`);
+  
+  if (!FINNHUB_API_KEY) {
+    console.warn(`⚠️  Finnhub API key not configured, using mock data`);
+    return generateMockData(ticker);
+  }
   
   try {
-    // Fetch last 250 days of historical data from Yahoo Finance
-    const historicalData = await getHistoricalDataForDays(ticker, 250);
+    // Calculate date range (last 250 days)
+    const endDate = Math.floor(Date.now() / 1000);
+    const startDate = endDate - (250 * 24 * 60 * 60); // 250 days in seconds
     
-    if (historicalData && historicalData.closes.length > 0) {
-      const latestPrice = historicalData.closes[historicalData.closes.length - 1];
-      console.log(`✅ Fetched REAL historical data for ${ticker}: ${historicalData.closes.length} days, latest price: $${latestPrice.toFixed(2)}`);
-      
-      return {
-        opens: historicalData.opens,
-        highs: historicalData.highs,
-        lows: historicalData.lows,
-        closes: historicalData.closes,
-        volumes: historicalData.volumes
-      };
-    } else {
+    // Finnhub candle API: https://finnhub.io/api/v1/stock/candle?symbol=AAPL&resolution=D&from=...&to=...
+    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${ticker}&resolution=D&from=${startDate}&to=${endDate}&token=${FINNHUB_API_KEY}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.warn(`⚠️  Finnhub API error for ${ticker}: ${response.status}`);
+      return generateMockData(ticker);
+    }
+    
+    const data = await response.json();
+    
+    // Finnhub returns: { s: 'status', o: opens, h: highs, l: lows, c: closes, v: volumes, t: timestamps }
+    if (data.s !== 'ok' || !data.c || data.c.length === 0) {
       console.warn(`⚠️  No historical data available for ${ticker}, using mock data`);
       return generateMockData(ticker);
     }
+    
+    const latestPrice = data.c[data.c.length - 1];
+    console.log(`✅ Fetched REAL historical data for ${ticker}: ${data.c.length} days, latest price: $${latestPrice.toFixed(2)}`);
+    
+    return {
+      opens: data.o,
+      highs: data.h,
+      lows: data.l,
+      closes: data.c,
+      volumes: data.v
+    };
   } catch (error) {
     console.error(`❌ Failed to fetch historical data for ${ticker}:`, error);
   }
