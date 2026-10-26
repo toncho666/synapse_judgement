@@ -1,7 +1,9 @@
 // Stock data service using Yahoo Finance API
 // Free, no API key required, no rate limits
 
-import yahooFinance from 'yahoo-finance2';
+import { YahooFinance } from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance();
 
 interface StockQuote {
   symbol: string;
