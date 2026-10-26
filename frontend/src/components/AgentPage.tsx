@@ -4,6 +4,7 @@ import { type AgentDef, type AgentId } from "../lib/engine";
 import Icon from "./Icon";
 import TechnicalAnalysisPanel from "./TechnicalAnalysisPanel";
 import NewsAnalysisPanel from "./NewsAnalysisPanel";
+import EarningsCallPanel from "./EarningsCallPanel";
 
 interface Props {
   agent: AgentDef;
@@ -20,6 +21,8 @@ export default function AgentPage({ agent, selected, onToggle, goHome }: Props) 
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [newsTicker, setNewsTicker] = useState(data.sample.ticker);
   const [showNewsAnalysis, setShowNewsAnalysis] = useState(false);
+  const [earningsTicker, setEarningsTicker] = useState(data.sample.ticker);
+  const [showEarningsAnalysis, setShowEarningsAnalysis] = useState(false);
 
   return (
     <div className="mx-auto max-w-6xl px-5 pb-24 pt-24 md:px-8 lg:pt-32">
@@ -205,6 +208,53 @@ export default function AgentPage({ agent, selected, onToggle, goHome }: Props) 
               </p>
               <p className="mt-2 text-[13px] text-faint">
                 Analyzes news from the last 5 days with sentiment scoring and trend analysis
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Earnings Call Analysis Section */}
+      {agent.id === "earn" && (
+        <section className="mt-20">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-mono text-[12px] font-semibold uppercase tracking-[0.24em]" style={{ color: agent.color }}>Live Earnings Analysis</p>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.02em] md:text-4xl">Earnings Call Analysis</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="text"
+                value={earningsTicker}
+                onChange={(e) => setEarningsTicker(e.target.value.toUpperCase())}
+                placeholder="Enter ticker (e.g., AAPL)"
+                className="rounded-full border border-line bg-white px-4 py-2 font-mono text-[14px] font-semibold text-ink transition-colors duration-300 focus:border-accent focus:outline-none"
+              />
+              <button
+                onClick={() => setShowEarningsAnalysis(!showEarningsAnalysis)}
+                className="inline-flex items-center gap-2 rounded-full px-6 py-2 font-bold text-white transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: agent.color }}
+              >
+                {showEarningsAnalysis ? "Hide Analysis" : "Analyze Calls"}
+                <Icon name={showEarningsAnalysis ? "arrowDown" : "play"} size={16} />
+              </button>
+            </div>
+          </div>
+          
+          {showEarningsAnalysis && (
+            <div className="mt-8">
+              <EarningsCallPanel ticker={earningsTicker} />
+            </div>
+          )}
+          
+          {!showEarningsAnalysis && (
+            <div className="mt-8 rounded-[22px] border border-dashed border-line bg-card/50 p-8 text-center">
+              <Icon name="earn" size={48} className="mx-auto text-faint" />
+              <p className="mt-4 text-[15px] text-sub">
+                Click "Analyze Calls" to get earnings call transcript analysis
+              </p>
+              <p className="mt-2 text-[13px] text-faint">
+                Analyzes management tone, guidance vs consensus, and key topics from recent earnings calls
               </p>
             </div>
           )}
