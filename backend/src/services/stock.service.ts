@@ -38,9 +38,15 @@ export async function fetchAllStocks(): Promise<StockData> {
     lastUpdated: new Date().toISOString()
   };
 
-  // Update cache
-  stockCache = stockData;
-  lastFetchTime = Date.now();
+  // Only cache non-empty results. Previously a failed fetch (e.g. unexpected API
+  // response shape or quota error) was cached for a full hour, so every consumer
+  // (dashboard AND analysis price lookup) kept receiving an empty quote list.
+  if (quotes.length > 0) {
+    stockCache = stockData;
+    lastFetchTime = Date.now();
+  } else {
+    console.warn('⚠️  Twelve Data returned no quotes - NOT caching empty result; will retry on next request');
+  }
 
   console.log(`✅ Fetched ${quotes.length}/${TRACKED_SYMBOLS.length} stock quotes`);
   if (failedSymbols.length > 0) {

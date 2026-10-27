@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma.js';
 import logger from '../utils/logger.js';
 import { getStockData } from './stock.service.js';
+import { fetchQuote } from './twelvedata.service.js';
 import { performTechnicalAnalysis } from './technical-analysis.service.js';
 import { performNewsAnalysis } from './news-analysis.service.js';
 import { performEarningsCallAnalysis } from './earnings-call.service.js';
@@ -100,51 +101,76 @@ export class AnalysisService {
     logger.info('AnalysisService: Completing analysis', { sessionId });
 
     try {
-      // Get real stock data
-      let basePrice = 100; // Default fallback
+      // Resolve the current price for this ticker.
+      // NEVER fall back to a made-up number (the old hardcoded $100 leaked into the UI
+      // whenever the dashboard cache was empty). Priority:
+      //   1. cached dashboard quote from stock.service (Twelve Data multi-symbol)
+      //   2. direct single-symbol Twelve Data quote
+      //   3. latest close from the technical analysis result (patched in further below)
+      let basePrice = 0;
       let priceChange = 0;
       let dataSource = 'unknown';
-      
+
       try {
         logger.info('AnalysisService: Fetching stock data', { ticker: input.ticker });
         const stockData = await getStockData();
-        
-        logger.debug('AnalysisService: Stock data received', { 
+
+        logger.debug('AnalysisService: Stock data received', {
           quotesCount: stockData.quotes.length,
           lastUpdated: stockData.lastUpdated
         });
-        
+
         const stockQuote = stockData.quotes.find(q => q.symbol === input.ticker.toUpperCase());
-        
+
         if (stockQuote) {
           basePrice = stockQuote.price;
           priceChange = stockQuote.changePercent;
-          
+
           // stock.service returns only real Twelve Data quotes (or nothing) - there is no mock
           // generator, so any quote here is real. (The old heuristic mislabeled valid
           // prices as MOCK based on arbitrary price/change ranges.)
           dataSource = 'REAL';
-          
-          logger.info('AnalysisService: Stock price obtained', { 
-            ticker: input.ticker, 
-            price: basePrice, 
+
+          logger.info('AnalysisService: Stock price obtained', {
+            ticker: input.ticker,
+            price: basePrice,
             change: priceChange,
             source: dataSource,
             timestamp: stockQuote.timestamp
           });
         } else {
-          dataSource = 'FALLBACK';
-          logger.warn('AnalysisService: Stock not found in data, using fallback price', { 
+          logger.warn('AnalysisService: Ticker not present in dashboard cache, will try direct quote', {
             ticker: input.ticker,
             availableSymbols: stockData.quotes.map(q => q.symbol)
           });
         }
       } catch (error) {
-        dataSource = 'ERROR';
-        logger.warn('AnalysisService: Failed to fetch stock data, using fallback price', { 
-          ticker: input.ticker, 
+        logger.warn('AnalysisService: Failed to fetch dashboard stock data, will use direct quote', {
+          ticker: input.ticker,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
+      }
+
+      // Fallback: direct single-symbol Twelve Data quote (shared rate-limit queue spaces calls)
+      if (basePrice <= 0) {
+        try {
+          const directQuote = await fetchQuote(input.ticker.toUpperCase());
+          if (directQuote) {
+            basePrice = directQuote.price;
+            priceChange = directQuote.changePercent;
+            dataSource = 'REAL_DIRECT';
+            logger.info('AnalysisService: Stock price obtained via direct Twelve Data quote', {
+              ticker: input.ticker,
+              price: basePrice,
+              change: priceChange
+            });
+          }
+        } catch (error) {
+          logger.warn('AnalysisService: Direct quote lookup failed', {
+            ticker: input.ticker,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
       }
 
       // (final verdict/confidence/target price are computed from the weighted agent scores below)
@@ -196,7 +222,7 @@ export class AnalysisService {
               confidence: techAnalysis.confidence,
               lines: [
                 `Price: $${techAnalysis.currentPrice.toFixed(2)}`,
-                `Recommendation: ${techAnalysis.recommendation} (${techAnalysis.confidence}% confidence)`,
+                `Recommendation: ${techAnalysis.recommendation} (${Math.round(techAnalysis.confidence)}% confidence)`,
                 `Support: $${techAnalysis.support?.toFixed(2) || 'N/A'}, Resistance: $${techAnalysis.resistance?.toFixed(2) || 'N/A'}`,
               ],
               metrics: [
@@ -362,6 +388,25 @@ export class AnalysisService {
         };
       }));
 
+      // Fallback 3: if we still have no price (dashboard cache empty AND direct quote failed),
+      // reuse the latest close from the technical analysis history instead of a fake number.
+      if (basePrice <= 0) {
+        const tech = agentVerdicts.find(v => v.agentId === 'tech');
+        const priceLine = tech?.lines.find(l => l.startsWith('Price: $'));
+        const parsed = priceLine ? parseFloat(priceLine.replace('Price: $', '')) : NaN;
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          basePrice = parsed;
+          dataSource = 'REAL_FROM_HISTORY';
+          logger.info('AnalysisService: Using latest historical close as base price', {
+            ticker: input.ticker,
+            price: basePrice
+          });
+        } else {
+          dataSource = 'NONE';
+          logger.error('AnalysisService: No real price available for ticker', { ticker: input.ticker });
+        }
+      }
+
       // Calculate consensus from agent verdicts
       const consensusBull = agentVerdicts.filter(v => v.signal === 'BULL').length;
       const consensusFlat = agentVerdicts.filter(v => v.signal === 'FLAT').length;
@@ -369,17 +414,21 @@ export class AnalysisService {
 
       // Calculate weighted composite score based on agent confidence
       const totalConfidence = agentVerdicts.reduce((sum, v) => sum + v.confidence, 0);
-      const weightedComposite = agentVerdicts.reduce((sum, v) => {
-        const weight = v.confidence / totalConfidence;
-        return sum + (v.score * weight);
-      }, 0);
+      const weightedComposite = totalConfidence > 0
+        ? agentVerdicts.reduce((sum, v) => {
+            const weight = v.confidence / totalConfidence;
+            return sum + (v.score * weight);
+          }, 0)
+        : 0; // no agent had real data -> neutral composite, not a random BUY/HOLD
 
       // Determine final verdict based on weighted composite
       const finalVerdict = weightedComposite >= 0.28 ? 'BUY' : 
                           weightedComposite <= -0.28 ? 'SELL' : 'HOLD';
       const finalVerdictWord = finalVerdict === 'BUY' ? 'Buy' : 
                               finalVerdict === 'SELL' ? 'Sell' : 'Hold';
-      const finalConfidence = Math.floor(50 + Math.abs(weightedComposite) * 40);
+      const finalConfidence = totalConfidence > 0
+        ? Math.floor(50 + Math.abs(weightedComposite) * 40)
+        : 0; // no real data -> report zero confidence instead of a fake 50+
       const finalTargetPrice = basePrice * (1 + weightedComposite * 0.3);
 
       // Determine data sources for rationale
