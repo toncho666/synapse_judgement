@@ -1,15 +1,10 @@
-// Stock data service using Finnhub API
-// Free tier: 60 requests/minute
+// Stock data service using Twelve Data API
+// Free tier: 800 credits/day, 8 requests/minute.
+// All quotes for tracked symbols are fetched in a SINGLE multi-symbol request,
+// so the whole hourly refresh costs just 1 credit.
+// (Finnhub is no longer used for prices - it was migrated to Twelve Data.)
 
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
-
-interface StockQuote {
-  symbol: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  timestamp: string;
-}
+import { fetchQuotes, type TwelveQuote as StockQuote } from './twelvedata.service.js';
 
 interface StockData {
   quotes: StockQuote[];
@@ -21,107 +16,22 @@ let stockCache: StockData | null = null;
 let lastFetchTime: number = 0;
 const CACHE_DURATION = 1 * 60 * 60 * 1000; // 1 hour
 
-// List of stocks to track (Finnhub supports major stocks)
+// List of stocks to track (Twelve Data supports all major US stocks)
 const TRACKED_SYMBOLS = [
   'AAPL', 'NVDA', 'MSFT', 'TSLA', 'AMZN', 
   'GOOGL', 'META'
 ];
 
 /**
- * Fetch stock quote from Finnhub API with retry logic
- */
-async function fetchStockQuote(symbol: string, retries: number = 2): Promise<StockQuote | null> {
-  try {
-    if (!FINNHUB_API_KEY) {
-      console.warn(`⚠️  Finnhub API key not configured`);
-      return null;
-    }
-    
-    console.log(`📊 Fetching quote for ${symbol} from Finnhub...`);
-    
-    const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-    
-    // Add timeout (15 seconds)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        console.warn(`⚠️  Finnhub API error for ${symbol}: ${response.status}`);
-        return null;
-      }
-      
-      const data = await response.json();
-      
-      // Finnhub returns: { c: current, d: change, dp: percent change, h: high, l: low, o: open, pc: previous close }
-      if (!data || data.c === 0 || !data.c) {
-        console.warn(`⚠️  No quote data for ${symbol}`);
-        return null;
-      }
-      
-      const result: StockQuote = {
-        symbol: symbol,
-        price: data.c, // current price
-        change: data.d || 0, // change
-        changePercent: data.dp || 0, // percent change
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log(`✅ ${symbol}: $${result.price.toFixed(2)} (${result.changePercent >= 0 ? '+' : ''}${result.changePercent.toFixed(2)}%)`);
-      
-      return result;
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      // If timeout or network error, retry
-      if (retries > 0 && fetchError instanceof Error && 
-          (fetchError.message.includes('timeout') || 
-           fetchError.message.includes('Timeout') ||
-           fetchError.name === 'AbortError' ||
-           fetchError.message.includes('ETIMEDOUT'))) {
-        console.warn(`⚠️  Timeout for ${symbol}, retrying... (${retries} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-        return fetchStockQuote(symbol, retries - 1);
-      }
-      
-      throw fetchError;
-    }
-  } catch (error) {
-    console.error(`❌ Error fetching quote for ${symbol}:`, error);
-    return null;
-  }
-}
-
-/**
- * Fetch all tracked stocks
+ * Fetch all tracked stocks in a single multi-symbol Twelve Data request.
  */
 export async function fetchAllStocks(): Promise<StockData> {
-  console.log('📊 Fetching stock data from Finnhub...');
-  
-  const quotes: StockQuote[] = [];
-  const failedSymbols: string[] = [];
-  
-  // Fetch all symbols sequentially
-  for (const symbol of TRACKED_SYMBOLS) {
-    try {
-      const quote = await fetchStockQuote(symbol);
-      if (quote) {
-        quotes.push(quote);
-      } else {
-        failedSymbols.push(symbol);
-        console.warn(`⚠️  No data for ${symbol}`);
-      }
-    } catch (error) {
-      failedSymbols.push(symbol);
-      console.error(`❌ Error fetching ${symbol}:`, error);
-    }
-    
-    // Small delay to respect rate limits (60 requests/minute = 1 request per second)
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
+  console.log('📊 Fetching stock data from Twelve Data...');
+
+  const quotes: StockQuote[] = await fetchQuotes(TRACKED_SYMBOLS);
+
+  const fetchedSymbols = new Set(quotes.map((q) => q.symbol));
+  const failedSymbols = TRACKED_SYMBOLS.filter((s) => !fetchedSymbols.has(s));
 
   const stockData: StockData = {
     quotes,

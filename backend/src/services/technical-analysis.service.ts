@@ -1,10 +1,32 @@
 // Technical Analysis Service
 // Calculates technical indicators and generates trading signals
+// Historical OHLC data source: Twelve Data (see twelvedata.service.ts)
 
-import { getStockData } from './stock.service.js';
+import { fetchHistoricalDaily } from './twelvedata.service.js';
 
-// Alpha Vantage API configuration for historical data
-const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
+// Shared sequential rate limiter for Alpha Vantage (free tier: 1 request/second, 25/day).
+// All AV calls (historical + news) go through this queue to avoid "Note"/"Information" throttling responses.
+let avLastCallAt = 0;
+const AV_MIN_INTERVAL_MS = 1100;
+let avQueueTail: Promise<void> = Promise.resolve();
+
+export async function alphaVantageSlot<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const run = avQueueTail.then(async () => {
+    const wait = avLastCallAt + AV_MIN_INTERVAL_MS - Date.now();
+    if (wait > 0) {
+      console.log(`⏱️ Rate-limiting Alpha Vantage request (${label}): waiting ${wait}ms`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+    avLastCallAt = Date.now();
+    return fn();
+  });
+  // Keep the chain alive even if this call rejects
+  avQueueTail = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
 
 // ============ TYPES ============
 
@@ -426,8 +448,6 @@ function generateMomentumSignal(indicators: TechnicalIndicators): TechnicalSigna
 }
 
 function generateVolatilitySignal(price: number, indicators: TechnicalIndicators): TechnicalSignal {
-  const reasons: string[] = [];
-  
   if (indicators.bollingerBands === null) {
     return { type: 'flat', strength: 50, reasons: ['Insufficient data for volatility analysis'] };
   }
@@ -462,8 +482,6 @@ function generateVolatilitySignal(price: number, indicators: TechnicalIndicators
 }
 
 function generateVolumeSignal(indicators: TechnicalIndicators): TechnicalSignal {
-  const reasons: string[] = [];
-  
   if (indicators.obv === null || indicators.obvChange === null) {
     return { type: 'flat', strength: 50, reasons: ['Insufficient volume data'] };
   }
@@ -581,7 +599,7 @@ export async function performTechnicalAnalysis(ticker: string): Promise<Technica
     return noDataResponse;
   }
   
-  const { opens, highs, lows, closes, volumes } = historicalData;
+  const { highs, lows, closes, volumes } = historicalData;
   const currentPrice = closes[closes.length - 1];
   
   console.log(`📈 Historical data received for ${ticker}:`);
@@ -671,100 +689,10 @@ export async function performTechnicalAnalysis(ticker: string): Promise<Technica
   return analysis;
 }
 
-/**
- * Fetch historical data from Alpha Vantage API
- * Falls back to mock data if API fails
- */
 async function fetchHistoricalData(ticker: string) {
-  console.log(`🌐 Fetching historical data for ${ticker} from Alpha Vantage...`);
-  
-  if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'demo') {
-    console.warn(`⚠️  Alpha Vantage API key not configured`);
-    return null;
-  }
-  
-  try {
-    // Alpha Vantage TIME_SERIES_DAILY API - используем compact для последних 100 дней
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
-    
-    console.log(`🌐 Requesting data from Alpha Vantage for ${ticker}...`);
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-    if (!response.ok) {
-      console.warn(`⚠️  Alpha Vantage API error for ${ticker}: ${response.status}`);
-      return null;
-    }      
-      const data = await response.json();
-      
-    // Check for API error messages
-    if (data['Error Message']) {
-      console.error(`❌ Alpha Vantage API error for ${ticker}:`, data['Error Message']);
-      return null;
-    }
-    
-    if (data['Note']) {
-      console.warn(`⚠️  Alpha Vantage API rate limit for ${ticker}:`, data['Note']);
-      return null;
-    }
-    
-    if (data['Information']) {
-      console.warn(`⚠️  Alpha Vantage API info for ${ticker}:`, data['Information']);
-      return null;
-    }      
-      // Alpha Vantage returns: { "Time Series (Daily)": { "2024-01-01": { "1. open": "...", "2. high": "...", "3. low": "...", "4. close": "...", "5. volume": "..." } } }
-      if (data['Time Series (Daily)']) {
-        const timeSeries = data['Time Series (Daily)'];
-        const dates = Object.keys(timeSeries).sort().slice(-250); // Last 250 days
-        
-      if (dates.length === 0) {
-        console.warn(`⚠️  No historical data available for ${ticker}`);
-        return null;
-      }        
-        const opens: number[] = [];
-        const highs: number[] = [];
-        const lows: number[] = [];
-        const closes: number[] = [];
-        const volumes: number[] = [];
-        
-        dates.forEach(date => {
-          const dayData = timeSeries[date];
-          opens.push(parseFloat(dayData['1. open']));
-          highs.push(parseFloat(dayData['2. high']));
-          lows.push(parseFloat(dayData['3. low']));
-          closes.push(parseFloat(dayData['4. close']));
-          volumes.push(parseInt(dayData['5. volume']));
-        });
-        
-        const latestPrice = closes[closes.length - 1];
-        console.log(`✅ Fetched REAL historical data for ${ticker}: ${dates.length} days, latest price: $${latestPrice.toFixed(2)}`);
-        
-        return { opens, highs, lows, closes, volumes };
-    } else {
-      console.warn(`⚠️  Alpha Vantage API returned unexpected format for ${ticker}`);
-      console.log('Response keys:', Object.keys(data));
-      return null;
-    }    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error(`❌ Timeout fetching historical data for ${ticker} (10s)`);
-      } else {
-        console.error(`❌ Network error fetching historical data for ${ticker}:`, fetchError);
-      }
-    }
-  } catch (error) {
-    console.error(`❌ Failed to fetch historical data for ${ticker}:`, error);
-  }
-  
-  // No data available - return null
-  console.warn(`⚠️  No historical data available for ${ticker}`);
-  return null;
+  // Historical OHLC data now comes from Twelve Data (much more generous free tier
+  // than Alpha Vantage: 800 credits/day vs 25/day, and no "Information" throttling blobs).
+  return await fetchHistoricalDaily(ticker, 350);
 }
 
 /**

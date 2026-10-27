@@ -2,6 +2,7 @@
 // Analyzes news sentiment for a ticker using Alpha Vantage API
 
 import logger from '../utils/logger.js';
+import { alphaVantageSlot } from './technical-analysis.service.js';
 
 // ============ TYPES ============
 
@@ -123,17 +124,34 @@ async function fetchNewsFromAlphaVantage(ticker: string): Promise<NewsItem[]> {
   logger.info(`📰 Fetching news for ${ticker} from Alpha Vantage (key ${maskedKey})`);
 
   try {
-    const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&limit=50&sort=EARLIEST&apikey=${apiKey}`;
+    // LATEST: freshest articles first (default was EARLIEST - wrong for a sentiment snapshot).
+    // sort=LATEST also avoids the known "premium endpoint" Information response of NEWS_SENTIMENT.
+    const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&limit=50&sort=LATEST&apikey=${apiKey}`;
     logger.info(`🌐 Requesting: ${url.replace(apiKey, '***')}`);
 
-    // Timeout guard (news-analysis had none; AV can hang and stall the request)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    // Timeout guard (AV can hang and stall the request)
+    const doFetch = async (): Promise<Response> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      try {
+        return await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    // Route through the shared Alpha Vantage rate-limit queue (1 req/sec on the free tier).
+    // Without this, news + technical requests fire simultaneously and AV throttles one of them.
     let response: Response;
     try {
-      response = await fetch(url, { signal: controller.signal });
-    } finally {
-      clearTimeout(timeoutId);
+      response = await alphaVantageSlot(`NEWS_SENTIMENT ${ticker}`, doFetch);
+    } catch (fetchError) {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        logger.error(`❌ Timeout fetching news for ${ticker} (15s)`);
+      } else {
+        logger.error(`❌ Network error fetching news for ${ticker}:`, fetchError);
+      }
+      return [];
     }
 
     if (!response.ok) {
