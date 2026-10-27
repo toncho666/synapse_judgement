@@ -13,10 +13,16 @@ export class AnalysisController {
       const result = await analysisService.runAnalysis(userId, { ticker, agents, portfolio });
 
       logger.info('AnalysisController: Analysis started', { sessionId: result.sessionId });
-      res.status(201).json(result);
+      res.status(201).json({
+        success: true,
+        data: result,
+      });
     } catch (error) {
       logger.error('AnalysisController: Run analysis failed', { error });
-      res.status(400).json({ error: (error as Error).message });
+      res.status(400).json({ 
+        success: false,
+        error: (error as Error).message 
+      });
     }
   }
 
@@ -30,10 +36,16 @@ export class AnalysisController {
       const session = await analysisService.getSession(id, userId);
       
       logger.info('AnalysisController: Session retrieved', { sessionId: id });
-      res.json(session);
+      res.json({
+        success: true,
+        data: session,
+      });
     } catch (error) {
       logger.error('AnalysisController: Get session failed', { error });
-      res.status(404).json({ error: (error as Error).message });
+      res.status(404).json({ 
+        success: false,
+        error: (error as Error).message 
+      });
     }
   }
 
@@ -46,10 +58,16 @@ export class AnalysisController {
       const sessions = await analysisService.getHistory(userId);
       
       logger.info('AnalysisController: History retrieved', { count: sessions.length });
-      res.json(sessions);
+      res.json({
+        success: true,
+        data: sessions,
+      });
     } catch (error) {
       logger.error('AnalysisController: Get history failed', { error });
-      res.status(500).json({ error: 'Failed to retrieve history' });
+      res.status(500).json({ 
+        success: false,
+        error: 'Failed to retrieve history' 
+      });
     }
   }
 }
