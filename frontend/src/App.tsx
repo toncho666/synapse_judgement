@@ -4,7 +4,7 @@ import Reveal from "./components/Reveal";
 import AgentPage from "./components/AgentPage";
 import { useHashRoute } from "./lib/router";
 import { useReducedMotion, useScrolled, useCountUp } from "./lib/hooks";
-import { getUser, getSessions, getStats, logout, type User } from "./lib/auth";
+import { getUser, login, register, getSessions, getStats, logout, type User } from "./lib/auth";
 import { AGENTS, JUDGE_PRICE, JUDGE_NAME, fmtMoney, plural, type AgentId, type SessionResult, type Signal } from "./lib/engine";
 import { runAnalysisAPI } from "./lib/api";
 import { useStocks } from "./hooks/useStocks";
@@ -518,33 +518,19 @@ function AuthPage({ onSuccess, onBack }: { onSuccess: () => void; onBack: () => 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
-  const handleSubmit = async (e: React.FormEvent) => { 
-    e.preventDefault(); 
-    setLoading(true); 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
     setError("");
-    
+
     try {
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
-      const payload = mode === "login" 
-        ? { email, password }
-        : { email, name, password };
-      
-      const response = await fetch(`http://localhost:3001${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Authentication failed");
+      // Реальная авторизация через backend API (токен и пользователь сохраняются в lib/auth)
+      if (mode === "login") {
+        await login(email, password);
+      } else {
+        await register(email, name, password);
       }
-      
-      // Сохраняем токен в localStorage
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      
+
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");

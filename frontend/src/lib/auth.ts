@@ -38,21 +38,31 @@ const STORAGE_KEYS = {
   SESSIONS: 'synapse_sessions',
 };
 
-const MOCK_USER: User = {
-  id: '1',
-  email: 'demo@synapse.ai',
-  name: 'Demo User',
-  avatar: '🎯',
-  plan: 'pro',
-  credits: 847,
-  referralCode: 'DEMO2026',
-  createdAt: '2025-01-15T10:00:00Z',
-  achievements: [
-    { id: 'first_verdict', title: 'First Verdict', description: 'Got your first AI verdict', icon: '🎖️', unlockedAt: '2025-01-15T10:05:00Z' },
-    { id: 'power_user', title: 'Power User', description: 'Run 50+ analyses', icon: '⚡', unlockedAt: '2025-02-20T14:30:00Z', progress: 67, maxProgress: 50 },
-    { id: 'diversified', title: 'Diversified', description: 'Used all 5 agents', icon: '🎨', unlockedAt: '2025-02-10T09:15:00Z' },
-  ],
-};
+const API_BASE_URL = 'http://localhost:3001';
+
+/** Normalizes backend plan (FREE/PRO/ENTERPRISE) to the frontend format. */
+function normalizePlan(plan: string | undefined): User['plan'] {
+  switch ((plan || '').toUpperCase()) {
+    case 'PRO': return 'pro';
+    case 'ENTERPRISE': return 'enterprise';
+    default: return 'free';
+  }
+}
+
+/** Maps a user object returned by the backend API to the frontend User shape. */
+function mapApiUser(apiUser: any): User {
+  return {
+    id: apiUser.id,
+    email: apiUser.email,
+    name: apiUser.name,
+    avatar: apiUser.avatar || '🚀',
+    plan: normalizePlan(apiUser.plan),
+    credits: apiUser.credits ?? 0,
+    referralCode: apiUser.referralCode || '',
+    createdAt: apiUser.createdAt || new Date().toISOString(),
+    achievements: apiUser.achievements || [],
+  };
+}
 
 const MOCK_SESSIONS: Session[] = [
   { id: 's1', ticker: 'AAPL', agents: ['Technical', 'Fundamental', 'News'], verdict: 'BUY', confidence: 87, timestamp: '2026-01-20T14:30:00Z', cost: 16, targetPrice: 245.50, currentPrice: 238.20, accuracy: 94 },
@@ -66,37 +76,50 @@ export function getUser(): User | null {
   return null;
 }
 
-export function login(email: string, password: string): Promise<User> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(MOCK_USER));
-      resolve(MOCK_USER);
-    }, 800);
-  });
+export function getToken(): string | null {
+  return localStorage.getItem('token');
 }
 
-export function register(email: string, name: string, password: string): Promise<User> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user: User = {
-        id: Date.now().toString(),
-        email,
-        name,
-        avatar: '🚀',
-        plan: 'free',
-        credits: 50,
-        referralCode: name.slice(0, 3).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase(),
-        createdAt: new Date().toISOString(),
-        achievements: [],
-      };
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-      resolve(user);
-    }, 800);
+async function requestAuth(endpoint: string, payload: object): Promise<User> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
+
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('Server returned an invalid response');
+  }
+
+  if (!response.ok) {
+    const details = Array.isArray(data?.details) && data.details.length > 0
+      ? `: ${data.details.map((d: any) => d.message).join(', ')}`
+      : '';
+    throw new Error((data?.error || 'Authentication failed') + details);
+  }
+
+  // Сохраняем JWT-токен и пользователя под едиными ключами
+  localStorage.setItem('token', data.token);
+  const user = mapApiUser(data.user);
+  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  return user;
+}
+
+export async function login(email: string, password: string): Promise<User> {
+  return requestAuth('/api/auth/login', { email, password });
+}
+
+export async function register(email: string, name: string, password: string): Promise<User> {
+  return requestAuth('/api/auth/register', { email, name, password });
 }
 
 export function logout(): void {
   localStorage.removeItem(STORAGE_KEYS.USER);
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
 }
 
 export function getSessions(): Session[] {
