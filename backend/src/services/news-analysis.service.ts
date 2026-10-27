@@ -81,7 +81,11 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (news changes frequently)
 
 // ============ CONFIGURATION ============
 
-const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
+// NOTE: intentionally read at call time (not module load) so dotenv/tsx ordering can't pin a stale value.
+// No 'demo' fallback: the demo key does NOT support NEWS_SENTIMENT and silently yields empty results.
+function getAlphaVantageApiKey(): string {
+  return (process.env.ALPHA_VANTAGE_API_KEY || '').trim();
+}
 
 // Source credibility weights
 const SOURCE_WEIGHTS: Record<string, number> = {
@@ -103,67 +107,101 @@ const SOURCE_WEIGHTS: Record<string, number> = {
  * Fetch news from Alpha Vantage
  */
 async function fetchNewsFromAlphaVantage(ticker: string): Promise<NewsItem[]> {
-  logger.info(`📰 Fetching news for ${ticker} from Alpha Vantage`);
-  logger.info(`🔑 Using API key: ${ALPHA_VANTAGE_API_KEY.substring(0, 4)}...${ALPHA_VANTAGE_API_KEY.substring(ALPHA_VANTAGE_API_KEY.length - 4)}`);
-  
+  const apiKey = getAlphaVantageApiKey();
+
+  if (!apiKey) {
+    logger.error(
+      `❌ ALPHA_VANTAGE_API_KEY is not set. News agent cannot fetch data for ${ticker}. ` +
+      `Set it in backend/.env (free key: https://www.alphavantage.co/support/#api-key). ` +
+      `Note: the "demo" key does NOT support NEWS_SENTIMENT.`
+    );
+    return [];
+  }
+
+  // Masked key for logs
+  const maskedKey = apiKey.length > 8 ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}` : '****';
+  logger.info(`📰 Fetching news for ${ticker} from Alpha Vantage (key ${maskedKey})`);
+
   try {
-    const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&limit=50&apikey=${ALPHA_VANTAGE_API_KEY}`;
-    logger.info(`🌐 Requesting: ${url.replace(ALPHA_VANTAGE_API_KEY, '***')}`);
-    
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    logger.info(`📥 API response received, keys: ${Object.keys(data).join(', ')}`);
-    
-    if (data.Error) {
-      logger.error(`❌ Alpha Vantage API error: ${data.Error}`);
+    const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&limit=50&sort=EARLIEST&apikey=${apiKey}`;
+    logger.info(`🌐 Requesting: ${url.replace(apiKey, '***')}`);
+
+    // Timeout guard (news-analysis had none; AV can hang and stall the request)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let response: Response;
+    try {
+      response = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!response.ok) {
+      logger.error(`❌ Alpha Vantage HTTP error: ${response.status} ${response.statusText}`);
       return [];
     }
-    
+
+    const data = (await response.json()) as Record<string, unknown>;
+
+    logger.info(`📥 API response received, keys: ${Object.keys(data).join(', ')}`);
+
+    if (data.Error) {
+      logger.error(`❌ Alpha Vantage API error: ${String(data.Error)}`);
+      return [];
+    }
+
     if (data.Note) {
-      logger.warn(`⚠️  Alpha Vantage API rate limit: ${data.Note}`);
+      logger.warn(`⚠️  Alpha Vantage API rate limit: ${String(data.Note)}`);
       logger.warn(`💡 You've reached the daily limit (25 requests/day for free tier)`);
       return [];
     }
-    
+
     if (data.Information) {
-      logger.warn(`ℹ️  Alpha Vantage API info: ${data.Information}`);
+      logger.warn(`ℹ️  Alpha Vantage API info: ${String(data.Information)}`);
       return [];
     }
-    
-    if (!data.feed || data.feed.length === 0) {
+
+    const feed = Array.isArray(data.feed) ? (data.feed as any[]) : [];
+
+    if (feed.length === 0) {
       logger.warn(`⚠️  No news found for ${ticker} in Alpha Vantage`);
       logger.warn(`💡 This is normal - Alpha Vantage may not have recent news for this ticker`);
       logger.warn(`💡 Try more popular tickers: AAPL, MSFT, TSLA, GOOGL`);
       return [];
     }
-    
-    logger.info(`✅ Found ${data.feed.length} total news items for ${ticker}`);
-    
+
+    logger.info(`✅ Found ${feed.length} total news items for ${ticker}`);
+
     // Filter news from last 5 days
     const fiveDaysAgo = new Date();
     fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-    
-    const news: NewsItem[] = data.feed
+
+    const news: NewsItem[] = feed
       .filter((item: any) => {
         const newsDate = new Date(item.time_published);
         return newsDate >= fiveDaysAgo;
       })
-      .map((item: any) => ({
-        title: item.title,
-        url: item.url,
-        source: item.source,
-        timePublished: item.time_published,
-        summary: item.summary || '',
-        sentimentScore: parseFloat(item.overall_sentiment_score || 0),
-        sentimentLabel: item.overall_sentiment_label || 'Neutral',
-        relevanceScore: parseFloat(item.relevance_score || 0),
-        tickerSentiment: item.ticker_sentiment?.[ticker] ? {
-          ticker,
-          relevanceScore: parseFloat(item.ticker_sentiment[ticker].ticker_relevance_score || 0),
-          sentimentScore: parseFloat(item.ticker_sentiment[ticker].ticker_sentiment_score || 0),
-        } : undefined,
-      }));
+      .map((item: any) => {
+        // Prefer per-ticker sentiment when available; fall back to overall values
+        const ts = item.ticker_sentiment?.find?.((t: any) => t.ticker === ticker);
+        return {
+          title: item.title,
+          url: item.url,
+          source: item.source,
+          timePublished: item.time_published,
+          summary: item.summary || '',
+          sentimentScore: parseFloat(ts?.ticker_sentiment_score ?? item.overall_sentiment_score ?? 0) || 0,
+          sentimentLabel: ts?.ticker_sentiment_label || item.overall_sentiment_label || 'Neutral',
+          relevanceScore: parseFloat(ts?.ticker_relevance_score ?? item.relevance_score ?? 0) || 0,
+          tickerSentiment: ts
+            ? {
+                ticker,
+                relevanceScore: parseFloat(ts.ticker_relevance_score ?? 0) || 0,
+                sentimentScore: parseFloat(ts.ticker_sentiment_score ?? 0) || 0,
+              }
+            : undefined,
+        };
+      });
     
     logger.info(`Fetched ${news.length} news items for ${ticker}`);
     return news;
@@ -314,17 +352,19 @@ function calculateTopSources(news: NewsItem[]): NewsAnalysis['topSources'] {
  * Determine sentiment trend
  */
 function determineTrend(timeAnalysis: NewsAnalysis['timeAnalysis']): 'improving' | 'declining' | 'stable' {
-  const { last24h, last3d, last5d } = timeAnalysis;
-  
-  if (last24h.count === 0 || last3d.count === 0) {
+  const { last24h, last5d } = timeAnalysis;
+
+  if (last24h.count === 0 || last5d.count === 0) {
     return 'stable';
   }
-  
-  const recentTrend = last24h.score - (last3d.score / 3);
-  
-  if (recentTrend > 0.1) {
+
+  // Compare the average sentiment of the freshest news vs the whole 5-day window.
+  // (Old formula divided last3d.score by 3, which almost always produced "improving".)
+  const recentDelta = last24h.score - last5d.score;
+
+  if (recentDelta > 0.1) {
     return 'improving';
-  } else if (recentTrend < -0.1) {
+  } else if (recentDelta < -0.1) {
     return 'declining';
   } else {
     return 'stable';
@@ -342,15 +382,17 @@ function generateSignal(analysis: Omit<NewsAnalysis, 'signal' | 'strength' | 're
   const reasons: string[] = [];
   let signal: 'bull' | 'bear' | 'flat' = 'flat';
   let strength = 50;
-  
-  const { sentiment, statistics, timeAnalysis } = analysis;
-  
-  // Determine signal based on sentiment
-  if (sentiment.score > 0.2 && statistics.positivityRatio > 1.5) {
+
+  // Note: timeAnalysis intentionally not used here (trend already folded in via sentiment.trend)
+  const { sentiment, statistics } = analysis;
+
+  // Determine signal based on sentiment.
+  // positivityRatio is a fraction positive/(positive+negative) in [0..1] (0.5 = balanced).
+  if (sentiment.score > 0.2 && statistics.positivityRatio > 0.6) {
     signal = 'bull';
     strength = Math.min(100, 50 + sentiment.score * 100);
     reasons.push(`Strong positive sentiment (${sentiment.score.toFixed(2)})`);
-  } else if (sentiment.score < -0.2 && statistics.positivityRatio < 0.67) {
+  } else if (sentiment.score < -0.2 && statistics.positivityRatio < 0.4) {
     signal = 'bear';
     strength = Math.min(100, 50 + Math.abs(sentiment.score) * 100);
     reasons.push(`Strong negative sentiment (${sentiment.score.toFixed(2)})`);
@@ -426,7 +468,8 @@ export async function performNewsAnalysis(ticker: string): Promise<NewsAnalysis>
   const positive = news.filter(n => n.sentimentScore > 0.15).length;
   const negative = news.filter(n => n.sentimentScore < -0.15).length;
   const neutral = news.length - positive - negative;
-  const positivityRatio = negative > 0 ? positive / negative : positive > 0 ? positive : 1;
+  // Fraction of opinionated articles that are positive, in [0..1]; 0.5 = balanced; 1 when no negatives
+  const positivityRatio = (positive + negative) > 0 ? positive / (positive + negative) : 0.5;
   
   // Calculate time analysis
   const timeAnalysis = calculateTimeAnalysis(news);
