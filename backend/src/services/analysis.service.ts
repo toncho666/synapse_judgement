@@ -120,14 +120,10 @@ export class AnalysisService {
           basePrice = stockQuote.price;
           priceChange = stockQuote.changePercent;
           
-          // Determine if data is real or mock
-          // Mock data from stock.service has specific patterns
-          const isLikelyMock = (
-            stockQuote.timestamp === new Date().toISOString() || // Mock data has current timestamp
-            (basePrice >= 100 && basePrice <= 500 && Math.abs(priceChange) < 2) // Mock data range
-          );
-          
-          dataSource = isLikelyMock ? 'MOCK' : 'REAL';
+          // stock.service returns only real Twelve Data quotes (or nothing) - there is no mock
+          // generator, so any quote here is real. (The old heuristic mislabeled valid
+          // prices as MOCK based on arbitrary price/change ranges.)
+          dataSource = 'REAL';
           
           logger.info('AnalysisService: Stock price obtained', { 
             ticker: input.ticker, 
@@ -151,15 +147,18 @@ export class AnalysisService {
         });
       }
 
-      // Generate analysis results based on real price and change
-      const composite = priceChange > 0 ? Math.min(priceChange / 10, 1) : Math.max(priceChange / 10, -1);
-      const verdict = composite >= 0.28 ? 'BUY' : composite <= -0.28 ? 'SELL' : 'HOLD';
-      const verdictWord = verdict === 'BUY' ? 'Buy' : verdict === 'SELL' ? 'Sell' : 'Hold';
-      const confidence = Math.floor(50 + Math.abs(composite) * 40);
-      const targetPrice = basePrice * (1 + composite * 0.3);
+      // (final verdict/confidence/target price are computed from the weighted agent scores below)
 
       // Create agent verdicts - use real data for tech/news/earn, mock for fund/port
-      const agentVerdicts = await Promise.all(input.agents.map(async (agentId) => {
+      type AgentVerdictResult = {
+        agentId: string;
+        signal: 'BULL' | 'BEAR' | 'FLAT';
+        score: number;
+        confidence: number;
+        lines: string[];
+        metrics: Array<{ label: string; value: string }>;
+      };
+      const agentVerdicts: AgentVerdictResult[] = await Promise.all(input.agents.map(async (agentId): Promise<AgentVerdictResult> => {
         // For Technical, News, and Earnings agents - use real API data
         if (agentId === 'tech') {
           try {
@@ -178,7 +177,7 @@ export class AnalysisService {
                 confidence: 0,
                 lines: [
                   'No data available',
-                  'Alpha Vantage API did not return historical data',
+                  'Twelve Data API did not return historical data',
                   'Please try again later or check API limits',
                 ],
                 metrics: [
@@ -233,13 +232,37 @@ export class AnalysisService {
             logger.info(`Fetching REAL news analysis for ${input.ticker}`);
             const newsAnalysis = await performNewsAnalysis(input.ticker);
             console.log(`✅ [AnalysisService] News analysis completed for ${input.ticker}: ${newsAnalysis.signal} (${newsAnalysis.strength}%)`);
-            
+
+            // No data: strength 50 is the neutral default - report confidence 0 so this agent
+            // does not pollute the weighted composite (previously a "flat" no-news agent was
+            // counted as 50% "data" and dragged every verdict toward BUY).
+            if (newsAnalysis.statistics.totalNews === 0) {
+              logger.warn(`No news data available for ${input.ticker}`);
+              return {
+                agentId,
+                signal: 'FLAT',
+                score: 0,
+                confidence: 0,
+                lines: [
+                  'No recent news available',
+                  'Alpha Vantage NEWS_SENTIMENT returned no articles (or API quota exceeded)',
+                  'Check backend logs / try again later',
+                ],
+                metrics: [
+                  { label: 'Sentiment', value: 'N/A' },
+                  { label: 'Positivity Ratio', value: 'N/A' },
+                  { label: 'Confidence', value: 'N/A' },
+                ],
+              };
+            }
+
             return {
               agentId,
               signal: newsAnalysis.signal === 'bull' ? 'BULL' : 
                       newsAnalysis.signal === 'bear' ? 'BEAR' : 'FLAT',
-              score: newsAnalysis.strength / 100,
-              confidence: newsAnalysis.strength,
+              // Signed direction from sentiment score (-1..+1), NOT unsigned strength.
+              score: Math.max(-1, Math.min(1, newsAnalysis.sentiment.score)),
+              confidence: newsAnalysis.sentiment.confidence,
               lines: [
                 `Sentiment: ${newsAnalysis.sentiment.label} (${newsAnalysis.sentiment.score.toFixed(2)})`,
                 `Trend: ${newsAnalysis.sentiment.trend}`,
@@ -283,7 +306,8 @@ export class AnalysisService {
               agentId,
               signal: earningsAnalysis.signal === 'bull' ? 'BULL' : 
                       earningsAnalysis.signal === 'bear' ? 'BEAR' : 'FLAT',
-              score: earningsAnalysis.strength / 100,
+              // Signed direction from tone/sentiment, not unsigned strength (avoids BUY bias)
+              score: Math.max(-1, Math.min(1, earningsAnalysis.tone.sentimentShift / 100)),
               confidence: earningsAnalysis.strength,
               lines: [
                 `Tone: ${earningsAnalysis.tone.overallTone} (Confidence: ${earningsAnalysis.tone.confidenceScore}/100)`,
