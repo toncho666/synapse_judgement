@@ -25,6 +25,7 @@ export default function App() {
   const [orderCost, setOrderCost] = useState(0);
   const [orderJudge, setOrderJudge] = useState(0);
   const [errorNonce, setErrorNonce] = useState(0);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -82,6 +83,11 @@ export default function App() {
 
   const toggleAgent = (id: AgentId) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
+  // Clear analysis error when ticker changes
+  useEffect(() => {
+    setAnalysisError(null);
+  }, [ticker]);
+
   const scrollToResult = useCallback(() => {
     document.getElementById("result")?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   }, [reduced]);
@@ -90,12 +96,14 @@ export default function App() {
     if (selected.length === 0) return;
     if (!validTicker) {
       setErrorNonce((v) => v + 1);
+      setAnalysisError(null);
       setTimeout(() => document.getElementById("ticker-input")?.focus(), 60);
       document.getElementById("request")?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
       return;
     }
     timers.current.forEach(clearTimeout);
     timers.current = [];
+    setAnalysisError(null);
     
     try {
       // Call backend API instead of using mock data
@@ -119,7 +127,8 @@ export default function App() {
       timers.current.push(setTimeout(() => setStage("agents"), 400 + n * 700 + 550));
     } catch (error) {
       console.error('Analysis failed:', error);
-      setErrorNonce((v) => v + 1);
+      const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
+      setAnalysisError(errorMessage);
       setStage("idle");
     }
   }, [selected, validTicker, ticker, portfolio, base, judgeCost, reduced, scrollToResult]);
@@ -186,6 +195,13 @@ export default function App() {
               <div key={errorNonce} className="anim-shake absolute inset-x-5 bottom-8 z-20 mx-auto max-w-xl md:inset-x-8">
                 <p className="flex items-center gap-2.5 rounded-full border border-flame/30 bg-[#fff1f0] px-5 py-3 text-[13.5px] font-semibold text-[#b3271e] shadow-soft">
                   <Icon name="bolt" size={16} />Enter a ticker — for example, AAPL or NVDA.
+                </p>
+              </div>
+            )}
+            {analysisError && (
+              <div key={analysisError} className="anim-shake absolute inset-x-5 bottom-8 z-20 mx-auto max-w-xl md:inset-x-8">
+                <p className="flex items-center gap-2.5 rounded-full border border-flame/30 bg-[#fff1f0] px-5 py-3 text-[13.5px] font-semibold text-[#b3271e] shadow-soft">
+                  <Icon name="bolt" size={16} />{analysisError}
                 </p>
               </div>
             )}
