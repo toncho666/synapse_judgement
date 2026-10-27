@@ -45,7 +45,7 @@ export async function runAnalysisAPI(
     }
 
     // Wait for analysis to complete (backend processes async)
-    const sessionId = data.sessionId;
+    const sessionId = data.data.sessionId;
     
     // Poll for results
     let attempts = 0;
