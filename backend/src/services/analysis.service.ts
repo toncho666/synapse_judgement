@@ -163,8 +163,10 @@ export class AnalysisService {
         // For Technical, News, and Earnings agents - use real API data
         if (agentId === 'tech') {
           try {
+            console.log(`🔍 [AnalysisService] Fetching REAL technical analysis for ${input.ticker}`);
             logger.info(`Fetching REAL technical analysis for ${input.ticker}`);
             const techAnalysis = await performTechnicalAnalysis(input.ticker);
+            console.log(`✅ [AnalysisService] Technical analysis completed for ${input.ticker}: ${techAnalysis.recommendation} (${techAnalysis.confidence}%)`);
             
             // Check if we got real data or "no data" response
             if (techAnalysis.confidence === 0 && techAnalysis.currentPrice === 0) {
@@ -227,8 +229,10 @@ export class AnalysisService {
         
         if (agentId === 'news') {
           try {
+            console.log(`🔍 [AnalysisService] Fetching REAL news analysis for ${input.ticker}`);
             logger.info(`Fetching REAL news analysis for ${input.ticker}`);
             const newsAnalysis = await performNewsAnalysis(input.ticker);
+            console.log(`✅ [AnalysisService] News analysis completed for ${input.ticker}: ${newsAnalysis.signal} (${newsAnalysis.strength}%)`);
             
             return {
               agentId,
@@ -270,8 +274,10 @@ export class AnalysisService {
         
         if (agentId === 'earn') {
           try {
+            console.log(`🔍 [AnalysisService] Fetching REAL earnings call analysis for ${input.ticker}`);
             logger.info(`Fetching REAL earnings call analysis for ${input.ticker}`);
             const earningsAnalysis = await performEarningsCallAnalysis(input.ticker);
+            console.log(`✅ [AnalysisService] Earnings analysis completed for ${input.ticker}: ${earningsAnalysis.signal} (${earningsAnalysis.strength}%)`);
             
             return {
               agentId,
@@ -312,6 +318,7 @@ export class AnalysisService {
         }
         
         // For Fundamental and Portfolio agents - NO DATA AVAILABLE
+        console.log(`⚠️  [AnalysisService] ${agentId} agent does not have real API integration yet`);
         logger.warn(`⚠️  ${agentId} agent does not have real API integration yet`);
         return {
           agentId,
