@@ -103,23 +103,42 @@ const SOURCE_WEIGHTS: Record<string, number> = {
  * Fetch news from Alpha Vantage
  */
 async function fetchNewsFromAlphaVantage(ticker: string): Promise<NewsItem[]> {
-  logger.info(`Fetching news for ${ticker} from Alpha Vantage`);
+  logger.info(`📰 Fetching news for ${ticker} from Alpha Vantage`);
+  logger.info(`🔑 Using API key: ${ALPHA_VANTAGE_API_KEY.substring(0, 4)}...${ALPHA_VANTAGE_API_KEY.substring(ALPHA_VANTAGE_API_KEY.length - 4)}`);
   
   try {
     const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&limit=50&apikey=${ALPHA_VANTAGE_API_KEY}`;
+    logger.info(`🌐 Requesting: ${url.replace(ALPHA_VANTAGE_API_KEY, '***')}`);
     
     const response = await fetch(url);
     const data = await response.json();
     
-    if (data.Error || data.Note) {
-      logger.warn(`Alpha Vantage API error: ${data.Error || data.Note}`);
+    logger.info(`📥 API response received, keys: ${Object.keys(data).join(', ')}`);
+    
+    if (data.Error) {
+      logger.error(`❌ Alpha Vantage API error: ${data.Error}`);
+      return [];
+    }
+    
+    if (data.Note) {
+      logger.warn(`⚠️  Alpha Vantage API rate limit: ${data.Note}`);
+      logger.warn(`💡 You've reached the daily limit (25 requests/day for free tier)`);
+      return [];
+    }
+    
+    if (data.Information) {
+      logger.warn(`ℹ️  Alpha Vantage API info: ${data.Information}`);
       return [];
     }
     
     if (!data.feed || data.feed.length === 0) {
-      logger.warn(`No news found for ${ticker}`);
+      logger.warn(`⚠️  No news found for ${ticker} in Alpha Vantage`);
+      logger.warn(`💡 This is normal - Alpha Vantage may not have recent news for this ticker`);
+      logger.warn(`💡 Try more popular tickers: AAPL, MSFT, TSLA, GOOGL`);
       return [];
     }
+    
+    logger.info(`✅ Found ${data.feed.length} total news items for ${ticker}`);
     
     // Filter news from last 5 days
     const fiveDaysAgo = new Date();
