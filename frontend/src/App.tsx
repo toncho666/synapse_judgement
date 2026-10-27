@@ -5,7 +5,8 @@ import AgentPage from "./components/AgentPage";
 import { useHashRoute } from "./lib/router";
 import { useReducedMotion, useScrolled, useCountUp } from "./lib/hooks";
 import { getUser, getSessions, getStats, logout, type User } from "./lib/auth";
-import { AGENTS, JUDGE_PRICE, JUDGE_NAME, runAnalysis, fmtMoney, plural, type AgentId, type SessionResult, type Signal } from "./lib/engine";
+import { AGENTS, JUDGE_PRICE, JUDGE_NAME, fmtMoney, plural, type AgentId, type SessionResult, type Signal } from "./lib/engine";
+import { runAnalysisAPI } from "./lib/api";
 import { useStocks } from "./hooks/useStocks";
 
 type Stage = "idle" | "running" | "agents" | "verdict";
@@ -85,7 +86,7 @@ export default function App() {
     document.getElementById("result")?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   }, [reduced]);
 
-  const launchInner = useCallback(() => {
+  const launchInner = useCallback(async () => {
     if (selected.length === 0) return;
     if (!validTicker) {
       setErrorNonce((v) => v + 1);
@@ -95,23 +96,32 @@ export default function App() {
     }
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    const res = runAnalysis(ticker, selected, Date.now() % 100000, portfolio.length > 0);
-    setOrderCost(base);
-    setOrderJudge(judgeCost);
-    setResult(res);
-    setStage("running");
-    setProcessed(0);
-    scrollToResult();
+    
+    try {
+      // Call backend API instead of using mock data
+      const res = await runAnalysisAPI(ticker, selected, portfolio.length > 0 ? parseFloat(portfolio) : undefined);
+      
+      setOrderCost(base);
+      setOrderJudge(judgeCost);
+      setResult(res);
+      setStage("running");
+      setProcessed(0);
+      scrollToResult();
 
-    const n = res.agents.length;
-    if (reduced) {
-      timers.current.push(setTimeout(() => { setProcessed(n); setStage("agents"); }, 500));
-      return;
+      const n = res.agents.length;
+      if (reduced) {
+        timers.current.push(setTimeout(() => { setProcessed(n); setStage("agents"); }, 500));
+        return;
+      }
+      for (let i = 1; i <= n; i++) {
+        timers.current.push(setTimeout(() => setProcessed(i), 400 + i * 700));
+      }
+      timers.current.push(setTimeout(() => setStage("agents"), 400 + n * 700 + 550));
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      setErrorNonce((v) => v + 1);
+      setStage("idle");
     }
-    for (let i = 1; i <= n; i++) {
-      timers.current.push(setTimeout(() => setProcessed(i), 400 + i * 700));
-    }
-    timers.current.push(setTimeout(() => setStage("agents"), 400 + n * 700 + 550));
   }, [selected, validTicker, ticker, portfolio, base, judgeCost, reduced, scrollToResult]);
 
   const launch = useCallback(() => {
