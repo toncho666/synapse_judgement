@@ -13,19 +13,20 @@ const router = Router();
  */
 router.get('/:ticker', async (req: Request, res: Response) => {
   try {
-    const { ticker } = req.params;
-    
-    if (!ticker || ticker.length > 10) {
+    const raw = req.params.ticker;
+    const ticker = Array.isArray(raw) ? raw[0] : raw;
+
+    if (!ticker || ticker.length > 10 || !/^[A-Za-z.\-]{1,10}$/.test(ticker)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid ticker symbol'
       });
     }
-    
+
     console.log(`📰 GET /api/news-analysis/${ticker}`);
-    
+
     const analysis = await performNewsAnalysis(ticker.toUpperCase());
-    
+
     res.json({
       success: true,
       data: analysis
@@ -43,7 +44,7 @@ router.get('/:ticker', async (req: Request, res: Response) => {
  * GET /api/news-analysis/cache/status
  * Get cache status
  */
-router.get('/cache/status', (req: Request, res: Response) => {
+router.get("/cache/status", (_req: Request, res: Response) => {
   try {
     const status = getNewsCacheStatus();
     
@@ -64,7 +65,7 @@ router.get('/cache/status', (req: Request, res: Response) => {
  * POST /api/news-analysis/cache/clear
  * Clear news analysis cache
  */
-router.post('/cache/clear', (req: Request, res: Response) => {
+router.post("/cache/clear", (_req: Request, res: Response) => {
   try {
     clearNewsCache();
     
