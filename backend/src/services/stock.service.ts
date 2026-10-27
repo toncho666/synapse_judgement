@@ -28,9 +28,9 @@ const TRACKED_SYMBOLS = [
 ];
 
 /**
- * Fetch stock quote from Finnhub API
+ * Fetch stock quote from Finnhub API with retry logic
  */
-async function fetchStockQuote(symbol: string): Promise<StockQuote | null> {
+async function fetchStockQuote(symbol: string, retries: number = 2): Promise<StockQuote | null> {
   try {
     if (!FINNHUB_API_KEY) {
       console.warn(`⚠️  Finnhub API key not configured`);
@@ -40,32 +40,55 @@ async function fetchStockQuote(symbol: string): Promise<StockQuote | null> {
     console.log(`📊 Fetching quote for ${symbol} from Finnhub...`);
     
     const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-    const response = await fetch(url);
     
-    if (!response.ok) {
-      console.warn(`⚠️  Finnhub API error for ${symbol}: ${response.status}`);
-      return null;
+    // Add timeout (15 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.warn(`⚠️  Finnhub API error for ${symbol}: ${response.status}`);
+        return null;
+      }
+      
+      const data = await response.json();
+      
+      // Finnhub returns: { c: current, d: change, dp: percent change, h: high, l: low, o: open, pc: previous close }
+      if (!data || data.c === 0 || !data.c) {
+        console.warn(`⚠️  No quote data for ${symbol}`);
+        return null;
+      }
+      
+      const result: StockQuote = {
+        symbol: symbol,
+        price: data.c, // current price
+        change: data.d || 0, // change
+        changePercent: data.dp || 0, // percent change
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`✅ ${symbol}: $${result.price.toFixed(2)} (${result.changePercent >= 0 ? '+' : ''}${result.changePercent.toFixed(2)}%)`);
+      
+      return result;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      // If timeout or network error, retry
+      if (retries > 0 && fetchError instanceof Error && 
+          (fetchError.message.includes('timeout') || 
+           fetchError.message.includes('Timeout') ||
+           fetchError.name === 'AbortError' ||
+           fetchError.message.includes('ETIMEDOUT'))) {
+        console.warn(`⚠️  Timeout for ${symbol}, retrying... (${retries} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+        return fetchStockQuote(symbol, retries - 1);
+      }
+      
+      throw fetchError;
     }
-    
-    const data = await response.json();
-    
-    // Finnhub returns: { c: current, d: change, dp: percent change, h: high, l: low, o: open, pc: previous close }
-    if (!data || data.c === 0 || !data.c) {
-      console.warn(`⚠️  No quote data for ${symbol}`);
-      return null;
-    }
-    
-    const result: StockQuote = {
-      symbol: symbol,
-      price: data.c, // current price
-      change: data.d || 0, // change
-      changePercent: data.dp || 0, // percent change
-      timestamp: new Date().toISOString()
-    };
-    
-    console.log(`✅ ${symbol}: $${result.price.toFixed(2)} (${result.changePercent >= 0 ? '+' : ''}${result.changePercent.toFixed(2)}%)`);
-    
-    return result;
   } catch (error) {
     console.error(`❌ Error fetching quote for ${symbol}:`, error);
     return null;
@@ -96,8 +119,8 @@ export async function fetchAllStocks(): Promise<StockData> {
       console.error(`❌ Error fetching ${symbol}:`, error);
     }
     
-    // Small delay to respect rate limits (60 requests/minute)
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Small delay to respect rate limits (60 requests/minute = 1 request per second)
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
 
   const stockData: StockData = {
