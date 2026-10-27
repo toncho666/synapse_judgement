@@ -248,23 +248,66 @@ export async function fetchQuotes(symbols: string[]): Promise<TwelveQuote[]> {
     const data = await tdFetch(url, `quote ${chunk.join(',')}`);
     if (!data) continue;
 
-    // Multi-symbol response: { AAPL: { status, values: {...} }, NVDA: {...}, ... }
-    // Single-symbol response: { meta, values: {...} }
-    if (data.values && typeof data.values === 'object' && !Array.isArray(data.values)) {
+    // Response shapes we must handle:
+    //  a) multi-symbol WITH wrapper: { quotes: { AAPL: { status, values }, ... } }
+    //     (observed on the free tier - top-level keys are just ["quotes"])
+    //  b) multi-symbol WITHOUT wrapper: { AAPL: { status, values }, NVDA: {...}, ... }
+    //  c) single-symbol: { meta, status, values: { open, high, low, close, ... } }
+    //  d) defensive: { values: [...] } array form (some plans return one row per symbol)
+    const container: Record<string, any> | null =
+      data.quotes && typeof data.quotes === 'object' ? data.quotes : data;
+
+    // Case (c): single-symbol response (only meaningful when the chunk had one symbol)
+    if (
+      data.values &&
+      typeof data.values === 'object' &&
+      !Array.isArray(data.values) &&
+      !('open' in data.values && chunk.length > 1)
+    ) {
       const q = normalizeQuote({ ...data.values, symbol: data.meta?.symbol || chunk[0] }, chunk[0]);
       if (q) results.push(q);
+      else console.warn(`⚠️  Could not parse quote for ${chunk[0]}`);
       continue;
     }
 
+    // Case (d): array of rows under "values"
+    if (Array.isArray(data.values)) {
+      for (const row of data.values) {
+        const sym = row.symbol || chunk[0];
+        const q = normalizeQuote({ ...row, symbol: sym }, sym);
+        if (q) results.push(q);
+      }
+      if (results.length) continue;
+    }
+
+    // Cases (a)/(b): per-symbol entries keyed by ticker
+    let parsedAny = false;
     for (const symbol of chunk) {
-      const entry = data[symbol];
-      if (!entry || entry.status === 'error' || !entry.values) {
+      const entry = container?.[symbol];
+      if (!entry) {
         console.warn(`⚠️  No quote data for ${symbol} from Twelve Data`);
         continue;
       }
-      const q = normalizeQuote({ ...entry.values, symbol }, symbol);
-      if (q) results.push(q);
-      else console.warn(`⚠️  Could not parse quote for ${symbol}`);
+      if (entry.status === 'error') {
+        console.warn(`⚠️  Twelve Data error for ${symbol}: [${entry.code}] ${entry.message}`);
+        continue;
+      }
+      // Some responses put fields directly on the entry instead of under "values"
+      const rawValues = entry.values ?? entry;
+      const q = normalizeQuote({ ...rawValues, symbol }, symbol);
+      if (q) {
+        results.push(q);
+        parsedAny = true;
+      } else {
+        console.warn(`⚠️  Could not parse quote for ${symbol}`);
+      }
+    }
+
+    if (!parsedAny && results.length === 0) {
+      console.warn(
+        `⚠️  Unexpected Twelve Data quote response shape. Top-level keys: [${Object.keys(data).join(', ')}]. ` +
+          `Snippet: ${JSON.stringify(data).slice(0, 300)}`
+      );
     }
   }
 
